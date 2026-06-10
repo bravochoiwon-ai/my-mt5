@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>나의 공간 · 최찬규</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">✺</span>
+      <span class="brand-name" id="brandName">나의 공간</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab is-active" data-tab="me">나</button>
+      <button class="tab" data-tab="library">나만의 도서관</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- ========================= 나 ========================= -->
+    <section id="tab-me" class="tab-panel is-active">
+      <!-- 프로필 -->
+      <div class="section-head">
+        <h2 id="meTitle">나</h2>
+        <p class="muted" id="meSub">MBTI · 진로 · 학업 선호 · 가치관</p>
+      </div>
+
+      <div class="grid grid-4" id="profileCards"></div>
+
+      <!-- AI 진로/적성 분석 -->
+      <div class="callout" id="careerCallout">
+        <div class="callout-head">🧭 진로·적성 분석</div>
+        <div class="callout-body" id="careerBody"></div>
+        <div class="callout-foot">미리 생성해 저장된 분석입니다. 정보가 바뀌면 다시 만들어 갱신해요.</div>
+      </div>
+
+      <!-- 독서 결 -->
+      <div class="section-head mt">
+        <h2>📖 <span id="gyeolName">나</span>의 독서 결</h2>
+      </div>
+
+      <div class="gyeol">
+        <div class="gyeol-chart card">
+          <div id="gyeolRadar"></div>
+        </div>
+        <div class="gyeol-side">
+          <div class="stat-row" id="gyeolStats"></div>
+          <div class="callout slim">
+            <div class="callout-head">✨ 독서 결 관찰</div>
+            <div class="callout-body" id="gyeolObserve"></div>
+          </div>
+          <div class="bars" id="gyeolBars"></div>
+        </div>
+      </div>
+      <p class="footnote">
+        막대 — 읽은 책들의 그 결 점수를 <b>누적</b>한 값(많이·깊이 읽을수록 두꺼워짐). 막대 끝 평균은 권수와 무관한 그 결의 평균값(참고).
+        7축은 책 소개·서평을 종합해 AI가 책마다 부여한 특성(1~5)이다. <b>독해 난이도</b>는 어려운 책일수록 높게 잡힌다(가독성 반전).
+      </p>
+    </section>
+
+    <!-- ===================== 나만의 도서관 ===================== -->
+    <section id="tab-library" class="tab-panel">
+      <div class="section-head">
+        <h2>📚 <span id="libName">나</span>의 서재</h2>
+        <p class="muted"><span id="libCount">0</span>권 · 분류별</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters" id="libFilters">
+          <button class="chip is-active" data-filter="all">전체</button>
+          <button class="chip" data-filter="read">읽은 책</button>
+          <button class="chip" data-filter="wish">관심 책</button>
+        </div>
+        <button class="btn-primary" id="addBookBtn">+ 책 직접 입력</button>
+      </div>
+
+      <div class="grid grid-books" id="bookGrid"></div>
+
+      <!-- 이번 달 신간 -->
+      <div class="section-head mt">
+        <h2>🆕 이번 달 신간</h2>
+        <p class="muted">2026년 6월 · 외부 도서 API 연결 예정 자리</p>
+      </div>
+      <div class="grid grid-books" id="newGrid"></div>
+
+      <!-- 추천 -->
+      <div class="section-head mt">
+        <h2>🎯 나를 위한 추천</h2>
+        <p class="muted">내 서재 기록을 바탕으로 한 추천</p>
+      </div>
+      <div class="reco">
+        <div class="card reco-card">
+          <div class="reco-title">추천 장르</div>
+          <div class="reco-list" id="recoGenres"></div>
+        </div>
+        <div class="card reco-card">
+          <div class="reco-title">추천 작가</div>
+          <div class="reco-list" id="recoAuthors"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 책 상세 모달 -->
+  <div class="modal-backdrop" id="bookModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <button class="modal-close" id="modalClose">←  돌아가기</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- 책 추가 모달 -->
+  <div class="modal-backdrop" id="formModal" hidden>
+    <div class="modal modal-form">
+      <button class="modal-close" id="formClose">✕  닫기</button>
+      <h3>책 직접 입력</h3>
+      <form id="addBookForm" class="book-form">
+        <label>제목 <input name="title" required placeholder="책 제목" /></label>
+        <label>저자 <input name="author" placeholder="지은이" /></label>
+        <div class="form-row">
+          <label>출판사 <input name="publisher" placeholder="출판사" /></label>
+          <label>출간연도 <input name="year" placeholder="2025" /></label>
+        </div>
+        <div class="form-row">
+          <label>장르
+            <select name="genre">
+              <option>인문</option><option>자기계발</option><option>신앙</option>
+              <option>과학기술</option><option>소설</option><option>경제·경영</option>
+              <option>역사</option><option>에세이</option><option>기타</option>
+            </select>
+          </label>
+          <label>상태
+            <select name="status">
+              <option value="read">읽은 책</option>
+              <option value="wish">관심 책</option>
+            </select>
+          </label>
+        </div>
+        <p class="form-note">※ 7축 결·AI 줄거리·추천 별점은 저장 후 나중에 한 번 생성해 채웁니다(미리 생성·저장 방식).</p>
+        <button class="btn-primary" type="submit">서재에 추가</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
