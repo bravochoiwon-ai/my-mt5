@@ -22,7 +22,8 @@ function drawRadar(el, opts) {
   const r = size / 2 - 64; // 라벨 여백
   const rings = max;
 
-  let svg = `<svg viewBox="0 0 ${size} ${size}" class="radar" role="img">`;
+  const padX = 52; // 좌우 가로 라벨이 잘리지 않도록 여백
+  let svg = `<svg viewBox="${-padX} 0 ${size + padX * 2} ${size}" class="radar" role="img">`;
 
   // 그리드 링
   for (let ring = 1; ring <= rings; ring++) {

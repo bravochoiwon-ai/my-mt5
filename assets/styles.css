@@ -165,6 +165,7 @@ body.modal-open { overflow: hidden; }
   display: flex; align-items: flex-start; justify-content: center;
   padding: 48px 20px; overflow-y: auto;
 }
+.modal-backdrop[hidden] { display: none; }
 .modal {
   background: #fff; border-radius: 18px; width: 100%; max-width: 640px;
   padding: 22px 26px 30px; box-shadow: 0 20px 60px rgba(15,23,42,.25);
