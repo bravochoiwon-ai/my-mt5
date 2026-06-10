@@ -209,9 +209,15 @@ body.modal-open { overflow: hidden; }
 .detail-col { padding: 18px; }
 .dc-head { font-weight: 700; font-size: 15px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 10px; }
 .dc-sub { font-size: 12px; color: var(--muted); font-weight: 500; }
-.review-text { font-size: 14px; color: #334155; line-height: 1.75; }
+.review-text { font-size: 14px; color: #334155; line-height: 1.75; white-space: pre-wrap; }
 .review-date { font-size: 12px; color: var(--muted); margin-top: 12px; }
 .review-empty { font-size: 14px; color: #94a3b8; background: #fff; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 28px 16px; text-align: center; line-height: 1.8; }
+.review-edit-btn { margin-left: auto; border: 1px solid var(--line); background: #fff; color: var(--accent); font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+.review-edit-btn:hover { background: #eef2ff; }
+#reviewEdit textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 9px; padding: 11px 12px; font: inherit; font-size: 14px; line-height: 1.7; min-height: 140px; resize: vertical; }
+.review-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ghost-btn { border: 1px solid var(--line); background: #fff; color: var(--muted); font-weight: 600; font-size: 13px; padding: 8px 14px; border-radius: 9px; cursor: pointer; }
+.ghost-btn:hover { background: #f8fafc; }
 .modal-radar { display: flex; justify-content: center; }
 .axis-desc { margin-top: 10px; font-size: 13px; }
 .axis-desc summary { cursor: pointer; color: var(--accent); font-weight: 600; }

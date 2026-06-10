@@ -5,6 +5,7 @@
 const LS_BOOKS = "myspace.userBooks.v1";       // 직접 추가한 책
 const LS_STATUS = "myspace.statusOverride.v1"; // 읽음/관심 직접 변경
 const LS_RATING = "myspace.myRatings.v1";      // 내 추천 별점·코멘트
+const LS_REVIEW = "myspace.myReviews.v1";      // 내 서평
 
 const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
 const lsArr = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
@@ -195,6 +196,19 @@ function initLibraryUI() {
   });
 }
 
+/* ---------- 내 서평 ---------- */
+function getReview(id) {
+  const saved = lsGet(LS_REVIEW)[id];
+  return saved && saved.text ? saved : { text: "", date: "" };
+}
+function reviewViewHTML(id) {
+  const r = getReview(id);
+  if (!r.text) {
+    return `<div class="review-empty">아직 내 서평이 없어요.<br/>위 <b>작성</b> 버튼을 눌러 이 책에 대한 생각을 남겨보세요.</div>`;
+  }
+  return `<p class="review-text">${r.text.replace(/\n/g, "<br/>")}</p><div class="review-date">작성: ${r.date}</div>`;
+}
+
 /* ---------- 책 상세 ---------- */
 function openBook(id) {
   const b = getBook(id);
@@ -202,13 +216,19 @@ function openBook(id) {
   const myRatings = lsGet(LS_RATING);
   const mine = myRatings[id];
 
-  const hasReview = b.review && b.review.trim();
   const reviewBox = `
     <div class="card detail-col review-col">
-      <div class="dc-head">🍚 드리미 학생들에게 이 책은 <span class="dc-sub">AI가 학생 서평을 종합해 생성</span></div>
-      ${hasReview
-        ? `<p class="review-text">${b.review}</p><div class="review-date">생성일: ${b.reviewDate || ""}</div>`
-        : `<div class="review-empty">드리미 학교 서평이 아직 없어요.<br/>서평이 모이면 AI가 여기에 종합해 줍니다. <span class="muted">(나중에 입력 예정)</span></div>`}
+      <div class="dc-head">✍️ 내 서평
+        <button class="review-edit-btn" id="reviewEditBtn">${getReview(id).text ? "수정" : "작성"}</button>
+      </div>
+      <div id="reviewView">${reviewViewHTML(id)}</div>
+      <div id="reviewEdit" hidden>
+        <textarea id="reviewText" placeholder="이 책을 읽고 든 생각을 자유롭게 적어보세요...">${getReview(id).text}</textarea>
+        <div class="review-actions">
+          <button class="btn-primary sm" id="reviewSave">저장</button>
+          <button class="ghost-btn" id="reviewCancel">취소</button>
+        </div>
+      </div>
     </div>`;
 
   const axisDescRows = BOOK_AXES.map((a) => `<li><b>${a}</b> — ${AXIS_DESC[a] || ""}</li>`).join("");
@@ -271,6 +291,27 @@ function openBook(id) {
 }
 
 function wireDetailEvents(id) {
+  // 내 서평 작성/수정
+  const reviewView = document.getElementById("reviewView");
+  const reviewEdit = document.getElementById("reviewEdit");
+  const editBtn = document.getElementById("reviewEditBtn");
+  const showEdit = (on) => { reviewEdit.hidden = !on; reviewView.hidden = on; editBtn.hidden = on; };
+  editBtn.addEventListener("click", () => showEdit(true));
+  document.getElementById("reviewCancel").addEventListener("click", () => {
+    document.getElementById("reviewText").value = getReview(id).text;
+    showEdit(false);
+  });
+  document.getElementById("reviewSave").addEventListener("click", () => {
+    const text = document.getElementById("reviewText").value.trim();
+    const all = lsGet(LS_REVIEW);
+    if (text) all[id] = { text, date: new Date().toLocaleDateString("ko-KR") };
+    else delete all[id];
+    lsSet(LS_REVIEW, all);
+    reviewView.innerHTML = reviewViewHTML(id);
+    editBtn.textContent = text ? "수정" : "작성";
+    showEdit(false);
+  });
+
   // 읽음/관심 토글
   document.querySelectorAll(".dh-status .seg").forEach((btn) =>
     btn.addEventListener("click", () => {
