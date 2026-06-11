@@ -379,7 +379,7 @@ function initAddBook() {
     };
     if (!book.title) return;
     const list = lsArr(LS_BOOKS); list.push(book); lsSet(LS_BOOKS, list);
-    e.target.reset(); closeModal(formModal); renderLibrary();
+    e.target.reset(); closeModal(formModal); renderLibrary(); renderGyeol();
   });
 }
 
