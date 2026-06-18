@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>마피아 진행 도우미</title>
+<style>
+  :root {
+    --bg: #14151a;
+    --panel: #1e2029;
+    --panel-2: #262936;
+    --line: #343847;
+    --text: #e8eaf0;
+    --muted: #9aa0b0;
+    --accent: #e0455a;
+    --accent-2: #4a7cff;
+    --good: #3ec27a;
+    --warn: #e6a23c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+      "Malgun Gothic", "Noto Sans KR", sans-serif;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+  h1 { font-size: 22px; margin: 6px 0 2px; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .row:last-child { margin-bottom: 0; }
+  .row .name { font-size: 15px; }
+  .row .hint { font-size: 12px; color: var(--muted); }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .stepper button {
+    width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); font-size: 20px; cursor: pointer;
+  }
+  .stepper .val { min-width: 34px; text-align: center; font-size: 18px; font-weight: 600; }
+  input[type="text"] {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); font-size: 15px;
+  }
+  .btn {
+    display: inline-block; width: 100%; padding: 14px; border-radius: 12px; border: none;
+    background: var(--accent); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    margin-top: 4px;
+  }
+  .btn.secondary { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font-weight: 600; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); font-weight: 600; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn + .btn { margin-top: 10px; }
+  .pill {
+    display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px;
+    border: 1px solid var(--line); color: var(--muted); margin-left: 8px;
+  }
+  .warnbox { background: rgba(230,162,60,.12); border: 1px solid var(--warn); color: var(--warn);
+    padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 14px; }
+  .reveal {
+    text-align: center; padding: 36px 18px;
+  }
+  .reveal .role { font-size: 40px; font-weight: 800; margin: 10px 0; }
+  .reveal .role.mafia { color: var(--accent); }
+  .reveal .role.citizen { color: var(--good); }
+  .reveal .role.special { color: var(--accent-2); }
+  .reveal .desc { color: var(--muted); font-size: 14px; max-width: 320px; margin: 0 auto 8px; }
+  .who { font-size: 15px; color: var(--muted); margin-bottom: 6px; }
+  .players { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .ptile {
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel-2);
+    cursor: pointer; text-align: center; font-size: 15px; user-select: none;
+  }
+  .ptile.selected { border-color: var(--accent-2); background: rgba(74,124,255,.14); }
+  .ptile.dead { opacity: .35; text-decoration: line-through; cursor: default; }
+  .ptile small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .phase-tag { font-size: 13px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  .timer { font-size: 44px; font-weight: 800; text-align: center; margin: 6px 0 14px; font-variant-numeric: tabular-nums; }
+  .step-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .step-note { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .result { font-size: 15px; line-height: 1.6; }
+  .center { text-align: center; }
+  .end .winner { font-size: 30px; font-weight: 800; margin: 14px 0; }
+  .end .winner.citizen { color: var(--good); }
+  .end .winner.mafia { color: var(--accent); }
+  .small { font-size: 12px; color: var(--muted); }
+  .hidden { display: none; }
+  .alive-strip { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+"use strict";
+
+/* ---------- 직업 정의 ---------- */
+const ROLES = {
+  mafia:   { key: "mafia",   name: "마피아", side: "mafia",   cls: "mafia",
+             desc: "밤마다 동료 마피아와 함께 한 명을 지목해 제거합니다. 정체를 숨기세요." },
+  doctor:  { key: "doctor",  name: "의사",   side: "citizen", cls: "special",
+             desc: "밤마다 한 명을 보호합니다. 마피아의 공격을 받아도 살아남게 합니다." },
+  police:  { key: "police",  name: "경찰",   side: "citizen", cls: "special",
+             desc: "밤마다 한 명을 조사해 마피아인지 아닌지 확인합니다." },
+  citizen: { key: "citizen", name: "시민",   side: "citizen", cls: "citizen",
+             desc: "특별한 능력은 없습니다. 낮 토론과 투표로 마피아를 찾아내세요." },
+};
+
+/* ---------- 상태 ---------- */
+let S = null;
+
+function defaultState() {
+  return {
+    screen: "setup",
+    count: 6,
+    mafia: 2,
+    doctor: 1,
+    police: 1,
+    names: [],
+    players: [],      // {id, name, role, alive}
+    revealIndex: 0,
+    revealShown: false,
+    day: 0,
+    // 밤 진행용 임시
+    night: null,      // {step, mafiaTarget, doctorTarget, policeTarget}
+    lastNightResult: null,
+    voteTarget: null,
+    log: [],
+  };
+}
+
+function citizensCount() {
+  return Math.max(0, S.count - S.mafia - S.doctor - S.police);
+}
+
+/* ---------- 렌더 ---------- */
+const app = document.getElementById("app");
+function render() {
+  const fns = {
+    setup: renderSetup,
+    reveal: renderReveal,
+    night: renderNight,
+    day: renderDay,
+    end: renderEnd,
+  };
+  (fns[S.screen] || renderSetup)();
+}
+
+/* ---------- 1. 설정 ---------- */
+function renderSetup() {
+  const c = citizensCount();
+  const validRoles = S.mafia + S.doctor + S.police + c === S.count && S.mafia >= 1 && c >= 0;
+  const enoughMafia = S.mafia >= 1;
+  const tooManyMafia = S.mafia * 2 >= S.count;
+
+  app.innerHTML = `
+    <h1>마피아 진행 도우미</h1>
+    <div class="sub">오프라인 모임용 · 사회자 보조 도구</div>
+
+    <div class="card">
+      <h2>인원 · 직업 구성</h2>
+      ${stepperRow("전체 인원", "count", S.count, 4, 20)}
+      ${stepperRow("마피아", "mafia", S.mafia, 1, Math.max(1, S.count - 1))}
+      ${stepperRow("의사", "doctor", S.doctor, 0, 1)}
+      ${stepperRow("경찰", "police", S.police, 0, 1)}
+      <div class="row">
+        <div><div class="name">시민</div><div class="hint">자동 계산</div></div>
+        <div class="val" style="font-size:18px;font-weight:600;">${c}명</div>
+      </div>
+    </div>
+
+    ${tooManyMafia ? `<div class="warnbox">⚠️ 마피아가 너무 많습니다. 마피아는 전체의 절반 미만을 권장합니다.</div>` : ""}
+    ${c < 0 ? `<div class="warnbox">⚠️ 직업 수가 전체 인원보다 많습니다.</div>` : ""}
+
+    <div class="card">
+      <h2>이름 (선택)</h2>
+      <div class="small" style="margin-bottom:10px;">비워두면 자동으로 1번, 2번… 으로 표시됩니다.</div>
+      <div id="nameInputs"></div>
+    </div>
+
+    <button class="btn" id="startBtn" ${validRoles ? "" : "disabled"}>역할 분배 시작</button>
+  `;
+
+  // 이름 입력칸
+  const box = document.getElementById("nameInputs");
+  for (let i = 0; i < S.count; i++) {
+    const wrap = document.createElement("div");
+    wrap.style.marginBottom = "8px";
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.placeholder = `${i + 1}번`;
+    inp.value = S.names[i] || "";
+    inp.addEventListener("input", (e) => { S.names[i] = e.target.value; });
+    wrap.appendChild(inp);
+    box.appendChild(wrap);
+  }
+
+  document.querySelectorAll("[data-step]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const field = btn.dataset.field;
+      const dir = parseInt(btn.dataset.step, 10);
+      adjust(field, dir);
+    });
+  });
+
+  document.getElementById("startBtn").addEventListener("click", startGame);
+}
+
+function stepperRow(label, field, val, min, max) {
+  return `
+    <div class="row">
+      <div><div class="name">${label}</div></div>
+      <div class="stepper">
+        <button data-step="-1" data-field="${field}">−</button>
+        <div class="val">${val}</div>
+        <button data-step="1" data-field="${field}">+</button>
+      </div>
+    </div>`;
+}
+
+function adjust(field, dir) {
+  const limits = {
+    count:  [4, 20],
+    mafia:  [1, 19],
+    doctor: [0, 1],
+    police: [0, 1],
+  };
+  const [min, max] = limits[field];
+  let v = S[field] + dir;
+  v = Math.max(min, Math.min(max, v));
+  S[field] = v;
+  // 마피아가 인원보다 많아지지 않게
+  if (S.mafia > S.count - 1) S.mafia = S.count - 1;
+  render();
+}
+
+function startGame() {
+  // 직업 배열 생성
+  const pool = [];
+  for (let i = 0; i < S.mafia; i++) pool.push("mafia");
+  for (let i = 0; i < S.doctor; i++) pool.push("doctor");
+  for (let i = 0; i < S.police; i++) pool.push("police");
+  while (pool.length < S.count) pool.push("citizen");
+  shuffle(pool);
+
+  S.players = [];
+  for (let i = 0; i < S.count; i++) {
+    S.players.push({
+      id: i,
+      name: (S.names[i] && S.names[i].trim()) || `${i + 1}번`,
+      role: pool[i],
+      alive: true,
+    });
+  }
+  S.revealIndex = 0;
+  S.revealShown = false;
+  S.screen = "reveal";
+  render();
+}
+
+/* ---------- 2. 역할 분배(돌려보기) ---------- */
+function renderReveal() {
+  const p = S.players[S.revealIndex];
+  const last = S.revealIndex === S.players.length - 1;
+
+  if (!S.revealShown) {
+    app.innerHTML = `
+      <h1>역할 확인</h1>
+      <div class="sub">${S.revealIndex + 1} / ${S.players.length}</div>
+      <div class="card reveal">
+        <div class="who">${p.name} 님, 본인 차례입니다.</div>
+        <div class="desc">다른 사람이 화면을 보지 못하게 한 뒤 눌러주세요.</div>
+        <button class="btn" id="showBtn" style="margin-top:18px;">내 직업 보기</button>
+      </div>
+    `;
+    document.getElementById("showBtn").addEventListener("click", () => {
+      S.revealShown = true; render();
+    });
+  } else {
+    const r = ROLES[p.role];
+    app.innerHTML = `
+      <h1>역할 확인</h1>
+      <div class="sub">${S.revealIndex + 1} / ${S.players.length}</div>
+      <div class="card reveal">
+        <div class="who">${p.name} 님의 직업</div>
+        <div class="role ${r.cls}">${r.name}</div>
+        <div class="desc">${r.desc}</div>
+        <button class="btn" id="nextBtn" style="margin-top:18px;">
+          ${last ? "확인 완료 — 게임 시작" : "확인했어요 (다음 사람에게)"}
+        </button>
+      </div>
+    `;
+    document.getElementById("nextBtn").addEventListener("click", () => {
+      if (last) {
+        S.day = 1;
+        startNight();
+      } else {
+        S.revealIndex++;
+        S.revealShown = false;
+        render();
+      }
+    });
+  }
+}
+
+/* ---------- 3. 밤 ---------- */
+function startNight() {
+  S.night = { step: "intro", mafiaTarget: null, doctorTarget: null, policeTarget: null };
+  S.screen = "night";
+  render();
+}
+
+function aliveBy(roleKey) {
+  return S.players.filter((p) => p.alive && p.role === roleKey);
+}
+function alivePlayers() {
+  return S.players.filter((p) => p.alive);
+}
+
+function renderNight() {
+  const n = S.night;
+
+  if (n.step === "intro") {
+    return nightScreen({
+      title: `🌙 ${S.day}번째 밤`,
+      note: "모두 눈을 감습니다. 사회자는 화면을 보며 진행하세요.",
+      body: "",
+      next: () => { n.step = "mafia"; render(); },
+      nextLabel: "밤 시작",
+    });
+  }
+
+  if (n.step === "mafia") {
+    return nightScreen({
+      title: "🔪 마피아",
+      note: "마피아는 눈을 뜨고, 제거할 사람을 한 명 지목합니다.",
+      body: targetGrid((id) => { n.mafiaTarget = id; render(); }, n.mafiaTarget),
+      next: n.mafiaTarget != null ? () => {
+        n.step = S.doctor ? "doctor" : (S.police ? "police" : "resolve");
+        render();
+      } : null,
+      nextLabel: "마피아 지목 완료",
+    });
+  }
+
+  if (n.step === "doctor") {
+    return nightScreen({
+      title: "💉 의사",
+      note: "의사는 눈을 뜨고, 보호할 사람을 한 명 지목합니다.",
+      body: targetGrid((id) => { n.doctorTarget = id; render(); }, n.doctorTarget),
+      next: n.doctorTarget != null ? () => {
+        n.step = S.police ? "police" : "resolve"; render();
+      } : null,
+      nextLabel: "의사 지목 완료",
+      skip: () => { n.doctorTarget = null; n.step = S.police ? "police" : "resolve"; render(); },
+    });
+  }
+
+  if (n.step === "police") {
+    const t = n.policeTarget != null ? S.players[n.policeTarget] : null;
+    let resultHtml = "";
+    if (t) {
+      const isMafia = t.role === "mafia";
+      resultHtml = `<div class="warnbox" style="border-color:${isMafia ? "var(--accent)" : "var(--good)"};
+        color:${isMafia ? "var(--accent)" : "var(--good)"};background:rgba(255,255,255,.04);">
+        🔎 ${t.name} → <b>${isMafia ? "마피아입니다" : "마피아가 아닙니다"}</b>
+        <div class="small" style="margin-top:4px;color:var(--muted);">경찰에게만 조용히 보여주세요.</div>
+        </div>`;
+    }
+    return nightScreen({
+      title: "👮 경찰",
+      note: "경찰은 눈을 뜨고, 조사할 사람을 한 명 지목합니다.",
+      body: resultHtml + targetGrid((id) => { n.policeTarget = id; render(); }, n.policeTarget),
+      next: () => { n.step = "resolve"; render(); },
+      nextLabel: "조사 완료",
+      skip: () => { n.policeTarget = null; n.step = "resolve"; render(); },
+    });
+  }
+
+  if (n.step === "resolve") {
+    // 결과 계산
+    let killedName = null;
+    if (n.mafiaTarget != null && n.mafiaTarget !== n.doctorTarget) {
+      const victim = S.players[n.mafiaTarget];
+      if (victim.alive) { victim.alive = false; killedName = victim.name; }
+    }
+    const saved = n.mafiaTarget != null && n.mafiaTarget === n.doctorTarget;
+    S.lastNightResult = { killedName, saved };
+    S.log.push(`밤 ${S.day}: ${killedName ? killedName + " 사망" : (saved ? "의사가 보호 — 사망자 없음" : "사망자 없음")}`);
+
+    const win = checkWin();
+    return nightScreen({
+      title: "☀️ 아침이 밝았습니다",
+      note: "사회자가 결과를 발표합니다.",
+      body: `<div class="result center">
+        ${killedName
+          ? `지난 밤, <b style="color:var(--accent)">${killedName}</b> 님이 사망했습니다.`
+          : (saved ? `의사의 활약으로 <b style="color:var(--good)">아무도 죽지 않았습니다.</b>`
+                   : `지난 밤은 <b>아무 일도 없었습니다.</b>`)}
+      </div>`,
+      next: () => {
+        if (win) { S.screen = "end"; S.winner = win; render(); }
+        else { startDay(); }
+      },
+      nextLabel: win ? "결과 보기" : "낮 토론으로",
+    });
+  }
+}
+
+function nightScreen({ title, note, body, next, nextLabel, skip }) {
+  app.innerHTML = `
+    <div class="phase-tag">NIGHT · ${S.day}일차</div>
+    <h1>${title}</h1>
+    <div class="alive-strip">생존: ${alivePlayers().map(p => p.name).join(", ")}</div>
+    <div class="card">
+      <div class="step-note">${note}</div>
+      ${body}
+    </div>
+    <button class="btn" id="nextBtn" ${next ? "" : "disabled"}>${nextLabel}</button>
+    ${skip ? `<button class="btn ghost" id="skipBtn">건너뛰기 / 대상 없음</button>` : ""}
+  `;
+  if (next) document.getElementById("nextBtn").addEventListener("click", next);
+  if (skip) document.getElementById("skipBtn").addEventListener("click", skip);
+  bindTargetGrid();
+}
+
+function targetGrid(onPick, selectedId) {
+  const tiles = alivePlayers().map((p) => {
+    const sel = p.id === selectedId ? "selected" : "";
+    return `<div class="ptile ${sel}" data-pick="${p.id}">${p.name}</div>`;
+  }).join("");
+  // dead 표시도 포함 (선택 불가)
+  const dead = S.players.filter(p => !p.alive)
+    .map(p => `<div class="ptile dead">${p.name}<small>사망</small></div>`).join("");
+  window.__onPick = onPick;
+  return `<div class="players">${tiles}${dead}</div>`;
+}
+function bindTargetGrid() {
+  document.querySelectorAll("[data-pick]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = parseInt(el.dataset.pick, 10);
+      if (window.__onPick) window.__onPick(id);
+    });
+  });
+}
+
+/* ---------- 4. 낮 ---------- */
+let timerHandle = null;
+function startDay() {
+  S.screen = "day";
+  S.dayStep = "discuss";
+  S.discussSeconds = 180; // 3분 기본
+  S.voteTarget = null;
+  render();
+}
+
+function renderDay() {
+  if (S.dayStep === "discuss") {
+    app.innerHTML = `
+      <div class="phase-tag">DAY · ${S.day}일차</div>
+      <h1>🗣️ 낮 토론</h1>
+      <div class="alive-strip">생존: ${alivePlayers().map(p => p.name).join(", ")}</div>
+      <div class="card center">
+        <div class="step-note">서로 의심되는 사람을 토론합니다.</div>
+        <div class="timer" id="timer">${fmt(S.discussSeconds)}</div>
+        <button class="btn secondary" id="toggleTimer">시작 / 일시정지</button>
+        <button class="btn ghost" id="add60">+1분</button>
+      </div>
+      <button class="btn" id="toVote">투표로 넘어가기</button>
+    `;
+    document.getElementById("toggleTimer").addEventListener("click", toggleTimer);
+    document.getElementById("add60").addEventListener("click", () => {
+      S.discussSeconds += 60; document.getElementById("timer").textContent = fmt(S.discussSeconds);
+    });
+    document.getElementById("toVote").addEventListener("click", () => {
+      stopTimer(); S.dayStep = "vote"; render();
+    });
+  } else if (S.dayStep === "vote") {
+    app.innerHTML = `
+      <div class="phase-tag">DAY · ${S.day}일차</div>
+      <h1>🗳️ 투표</h1>
+      <div class="step-note">처형할 사람을 한 명 지목합니다. (동률·기권은 사회자 재량)</div>
+      <div class="card">
+        ${targetGrid((id) => { S.voteTarget = id; render(); }, S.voteTarget)}
+      </div>
+      <button class="btn" id="execBtn" ${S.voteTarget != null ? "" : "disabled"}>처형 확정</button>
+      <button class="btn ghost" id="noExec">아무도 처형하지 않음</button>
+    `;
+    bindTargetGrid();
+    document.getElementById("execBtn").addEventListener("click", () => {
+      const v = S.players[S.voteTarget];
+      v.alive = false;
+      S.log.push(`낮 ${S.day}: 투표로 ${v.name}(${ROLES[v.role].name}) 처형`);
+      finishDay(v);
+    });
+    document.getElementById("noExec").addEventListener("click", () => {
+      S.log.push(`낮 ${S.day}: 처형 없음`);
+      finishDay(null);
+    });
+  } else if (S.dayStep === "result") {
+    const v = S.executed;
+    const r = v ? ROLES[v.role] : null;
+    const win = checkWin();
+    app.innerHTML = `
+      <div class="phase-tag">DAY · ${S.day}일차</div>
+      <h1>처형 결과</h1>
+      <div class="card center result">
+        ${v
+          ? `<b>${v.name}</b> 님이 처형되었습니다.<br>
+             정체는 <b class="${r.cls === 'mafia' ? '' : ''}" style="color:${r.side==='mafia'?'var(--accent)':'var(--good)'}">${r.name}</b> 였습니다.`
+          : `이번 낮에는 아무도 처형하지 않았습니다.`}
+      </div>
+      <button class="btn" id="cont">${win ? "결과 보기" : "다음 밤으로"}</button>
+    `;
+    document.getElementById("cont").addEventListener("click", () => {
+      if (win) { S.screen = "end"; S.winner = win; render(); }
+      else { S.day++; startNight(); }
+    });
+  }
+}
+
+function finishDay(victim) {
+  S.executed = victim;
+  S.dayStep = "result";
+  render();
+}
+
+function toggleTimer() {
+  if (timerHandle) { stopTimer(); return; }
+  timerHandle = setInterval(() => {
+    S.discussSeconds = Math.max(0, S.discussSeconds - 1);
+    const el = document.getElementById("timer");
+    if (el) el.textContent = fmt(S.discussSeconds);
+    if (S.discussSeconds === 0) stopTimer();
+  }, 1000);
+}
+function stopTimer() { if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
+
+/* ---------- 5. 승패 ---------- */
+function checkWin() {
+  const aliveMafia = aliveBy("mafia").length;
+  const aliveCitizen = alivePlayers().length - aliveMafia;
+  if (aliveMafia === 0) return "citizen";
+  if (aliveMafia >= aliveCitizen) return "mafia";
+  return null;
+}
+
+function renderEnd() {
+  const win = S.winner;
+  const cls = win === "mafia" ? "mafia" : "citizen";
+  const label = win === "mafia" ? "마피아 승리 🔪" : "시민 승리 🎉";
+  const rows = S.players.map((p) => {
+    const r = ROLES[p.role];
+    return `<div class="row" style="margin-bottom:8px;">
+      <div class="name">${p.name} ${p.alive ? "" : '<span class="pill">사망</span>'}</div>
+      <div class="small" style="color:${r.side==='mafia'?'var(--accent)':'var(--good)'}">${r.name}</div>
+    </div>`;
+  }).join("");
+  const logHtml = S.log.map(l => `<div class="small">· ${l}</div>`).join("");
+
+  app.innerHTML = `
+    <div class="end">
+      <div class="phase-tag center">GAME OVER</div>
+      <div class="winner ${cls} center">${label}</div>
+      <div class="card">
+        <h2>전체 직업 공개</h2>
+        ${rows}
+      </div>
+      <div class="card">
+        <h2>진행 기록</h2>
+        ${logHtml || '<div class="small">기록 없음</div>'}
+      </div>
+      <button class="btn" id="again">새 게임</button>
+      <button class="btn secondary" id="sameSetup">같은 설정으로 다시</button>
+    </div>
+  `;
+  document.getElementById("again").addEventListener("click", () => { S = defaultState(); render(); });
+  document.getElementById("sameSetup").addEventListener("click", () => {
+    const keep = { count: S.count, mafia: S.mafia, doctor: S.doctor, police: S.police, names: S.names.slice() };
+    S = defaultState();
+    Object.assign(S, keep);
+    render();
+  });
+}
+
+/* ---------- 유틸 ---------- */
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function fmt(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/* ---------- 시작 ---------- */
+S = defaultState();
+render();
+</script>
+</body>
+</html>
