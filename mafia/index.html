@@ -16,6 +16,8 @@
     --accent-2: #4a7cff;
     --good: #3ec27a;
     --warn: #e6a23c;
+    --cult: #b06bff;
+    --merc: #d9a441;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -72,14 +74,15 @@
   }
   .warnbox { background: rgba(230,162,60,.12); border: 1px solid var(--warn); color: var(--warn);
     padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 14px; }
-  .reveal {
-    text-align: center; padding: 36px 18px;
-  }
+  .reveal { text-align: center; padding: 36px 18px; }
   .reveal .role { font-size: 40px; font-weight: 800; margin: 10px 0; }
   .reveal .role.mafia { color: var(--accent); }
   .reveal .role.citizen { color: var(--good); }
   .reveal .role.special { color: var(--accent-2); }
-  .reveal .desc { color: var(--muted); font-size: 14px; max-width: 320px; margin: 0 auto 8px; }
+  .reveal .role.cult { color: var(--cult); }
+  .reveal .role.merc { color: var(--merc); }
+  .reveal .desc { color: var(--muted); font-size: 14px; max-width: 340px; margin: 0 auto 8px; line-height: 1.5; }
+  .reveal .extra { font-size: 14px; margin-top: 10px; }
   .who { font-size: 15px; color: var(--muted); margin-bottom: 6px; }
   .players { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
   .ptile {
@@ -89,18 +92,26 @@
   .ptile.selected { border-color: var(--accent-2); background: rgba(74,124,255,.14); }
   .ptile.dead { opacity: .35; text-decoration: line-through; cursor: default; }
   .ptile small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .ptile .tag { display:block; font-size:10px; margin-top:3px; color: var(--cult); }
   .phase-tag { font-size: 13px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
   .timer { font-size: 44px; font-weight: 800; text-align: center; margin: 6px 0 14px; font-variant-numeric: tabular-nums; }
   .step-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-  .step-note { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .step-note { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height:1.5; }
   .result { font-size: 15px; line-height: 1.6; }
   .center { text-align: center; }
-  .end .winner { font-size: 30px; font-weight: 800; margin: 14px 0; }
+  .end .winner { font-size: 28px; font-weight: 800; margin: 14px 0; }
   .end .winner.citizen { color: var(--good); }
   .end .winner.mafia { color: var(--accent); }
+  .end .winner.cult { color: var(--cult); }
   .small { font-size: 12px; color: var(--muted); }
   .hidden { display: none; }
-  .alive-strip { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .alive-strip { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height:1.5; }
+  .legend { font-size:12px; color:var(--muted); margin-top:10px; line-height:1.6; }
+  details.roleinfo { margin-bottom:14px; border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:10px 14px; }
+  details.roleinfo summary { cursor:pointer; font-size:14px; color:var(--muted); }
+  details.roleinfo table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px; }
+  details.roleinfo td { padding:5px 4px; border-top:1px solid var(--line); vertical-align:top; }
+  details.roleinfo td:first-child { white-space:nowrap; font-weight:600; }
 </style>
 </head>
 <body>
@@ -110,16 +121,40 @@
 "use strict";
 
 /* ---------- 직업 정의 ---------- */
+/* side: mafia / citizen / cult / mercenary (현재 team의 초기값) */
 const ROLES = {
-  mafia:   { key: "mafia",   name: "마피아", side: "mafia",   cls: "mafia",
-             desc: "밤마다 동료 마피아와 함께 한 명을 지목해 제거합니다. 정체를 숨기세요." },
-  doctor:  { key: "doctor",  name: "의사",   side: "citizen", cls: "special",
-             desc: "밤마다 한 명을 보호합니다. 마피아의 공격을 받아도 살아남게 합니다." },
-  police:  { key: "police",  name: "경찰",   side: "citizen", cls: "special",
-             desc: "밤마다 한 명을 조사해 마피아인지 아닌지 확인합니다." },
-  citizen: { key: "citizen", name: "시민",   side: "citizen", cls: "citizen",
-             desc: "특별한 능력은 없습니다. 낮 토론과 투표로 마피아를 찾아내세요." },
+  mafia:      { name: "마피아",   side: "mafia",     cls: "mafia",
+                desc: "밤마다 동료 마피아와 함께 한 명을 지목해 제거합니다." },
+  contractor: { name: "청부업자", side: "mafia",     cls: "mafia",
+                desc: "마피아팀입니다. 밤마다 마피아와 별개로 한 명을 추가로 제거할 수 있습니다." },
+  doctor:     { name: "의사",     side: "citizen",   cls: "special",
+                desc: "밤마다 한 명을 보호합니다. 그날 밤 공격을 받아도 살아남게 합니다." },
+  police:     { name: "경찰",     side: "citizen",   cls: "special",
+                desc: "밤마다 한 명을 조사해 마피아팀인지 확인합니다." },
+  politician: { name: "정치인",   side: "citizen",   cls: "special",
+                desc: "낮 투표에서 2표를 행사합니다. 투표 처형을 1회 면역(첫 지목 시 생존)합니다." },
+  vigilante:  { name: "자경단원", side: "citizen",   cls: "special",
+                desc: "밤마다 한 명을 사살할 수 있습니다(총알 제한). 무고한 시민팀을 쏘면 죄책감으로 본인도 사망합니다." },
+  mercenary:  { name: "용병",     side: "mercenary", cls: "merc",
+                desc: "중립(단독). '의뢰 대상'을 끝까지 생존시키면 단독 승리. 대상이 죽으면 시민팀으로 합류합니다." },
+  cult:       { name: "교주",     side: "cult",      cls: "cult",
+                desc: "교주팀. 밤마다 한 명을 신도로 포섭합니다. 생존자 전원이 신도가 되면 승리, 교주가 죽으면 패배합니다." },
+  citizen:    { name: "시민",     side: "citizen",   cls: "citizen",
+                desc: "특별한 능력은 없습니다. 낮 토론과 투표로 위협을 찾아내세요." },
 };
+
+/* 설정 화면에 노출할 특수 직업(각 0~1) */
+const SPECIALS = [
+  { key: "doctor",     label: "의사" },
+  { key: "police",     label: "경찰" },
+  { key: "politician", label: "정치인" },
+  { key: "vigilante",  label: "자경단원" },
+  { key: "contractor", label: "청부업자" },
+  { key: "mercenary",  label: "용병" },
+  { key: "cult",       label: "교주" },
+];
+
+const VIGILANTE_SHOTS = 2;
 
 /* ---------- 상태 ---------- */
 let S = null;
@@ -128,45 +163,45 @@ function defaultState() {
   return {
     screen: "setup",
     count: 6,
-    mafia: 2,
-    doctor: 1,
-    police: 1,
+    roleCounts: { mafia: 2, doctor: 1, police: 1, politician: 0, vigilante: 0, contractor: 0, mercenary: 0, cult: 0 },
     names: [],
-    players: [],      // {id, name, role, alive}
+    players: [],
     revealIndex: 0,
     revealShown: false,
     day: 0,
-    // 밤 진행용 임시
-    night: null,      // {step, mafiaTarget, doctorTarget, policeTarget}
+    night: null,
     lastNightResult: null,
     voteTarget: null,
     log: [],
+    winner: null,
   };
 }
 
-function citizensCount() {
-  return Math.max(0, S.count - S.mafia - S.doctor - S.police);
+function specialSum() {
+  return SPECIALS.reduce((a, s) => a + S.roleCounts[s.key], 0);
 }
+function citizensCount() {
+  return S.count - S.roleCounts.mafia - specialSum();
+}
+function has(key) { return S.roleCounts[key] > 0; }
 
 /* ---------- 렌더 ---------- */
 const app = document.getElementById("app");
 function render() {
-  const fns = {
+  ({
     setup: renderSetup,
     reveal: renderReveal,
     night: renderNight,
     day: renderDay,
     end: renderEnd,
-  };
-  (fns[S.screen] || renderSetup)();
+  }[S.screen] || renderSetup)();
 }
 
 /* ---------- 1. 설정 ---------- */
 function renderSetup() {
   const c = citizensCount();
-  const validRoles = S.mafia + S.doctor + S.police + c === S.count && S.mafia >= 1 && c >= 0;
-  const enoughMafia = S.mafia >= 1;
-  const tooManyMafia = S.mafia * 2 >= S.count;
+  const valid = c >= 0 && S.roleCounts.mafia >= 1 && (S.roleCounts.mafia + specialSum() + c === S.count);
+  const tooManyMafia = S.roleCounts.mafia * 2 >= S.count;
 
   app.innerHTML = `
     <h1>마피아 진행 도우미</h1>
@@ -174,54 +209,55 @@ function renderSetup() {
 
     <div class="card">
       <h2>인원 · 직업 구성</h2>
-      ${stepperRow("전체 인원", "count", S.count, 4, 20)}
-      ${stepperRow("마피아", "mafia", S.mafia, 1, Math.max(1, S.count - 1))}
-      ${stepperRow("의사", "doctor", S.doctor, 0, 1)}
-      ${stepperRow("경찰", "police", S.police, 0, 1)}
+      ${stepperRow("전체 인원", "count", S.count)}
+      ${stepperRow("마피아", "mafia", S.roleCounts.mafia)}
+      ${SPECIALS.map((s) => stepperRow(s.label, s.key, S.roleCounts[s.key])).join("")}
       <div class="row">
         <div><div class="name">시민</div><div class="hint">자동 계산</div></div>
         <div class="val" style="font-size:18px;font-weight:600;">${c}명</div>
       </div>
     </div>
 
-    ${tooManyMafia ? `<div class="warnbox">⚠️ 마피아가 너무 많습니다. 마피아는 전체의 절반 미만을 권장합니다.</div>` : ""}
     ${c < 0 ? `<div class="warnbox">⚠️ 직업 수가 전체 인원보다 많습니다.</div>` : ""}
+    ${tooManyMafia ? `<div class="warnbox">⚠️ 마피아가 너무 많습니다. 전체의 절반 미만을 권장합니다.</div>` : ""}
+
+    <details class="roleinfo">
+      <summary>직업 설명 보기</summary>
+      <table>${Object.values(ROLES).map((r) =>
+        `<tr><td style="color:${sideColor(r.side)}">${r.name}</td><td>${r.desc}</td></tr>`).join("")}</table>
+    </details>
 
     <div class="card">
       <h2>이름 (선택)</h2>
-      <div class="small" style="margin-bottom:10px;">비워두면 자동으로 1번, 2번… 으로 표시됩니다.</div>
+      <div class="small" style="margin-bottom:10px;">비워두면 1번, 2번… 으로 표시됩니다.</div>
       <div id="nameInputs"></div>
     </div>
 
-    <button class="btn" id="startBtn" ${validRoles ? "" : "disabled"}>역할 분배 시작</button>
+    <button class="btn" id="startBtn" ${valid ? "" : "disabled"}>역할 분배 시작</button>
   `;
 
-  // 이름 입력칸
   const box = document.getElementById("nameInputs");
   for (let i = 0; i < S.count; i++) {
-    const wrap = document.createElement("div");
-    wrap.style.marginBottom = "8px";
     const inp = document.createElement("input");
     inp.type = "text";
     inp.placeholder = `${i + 1}번`;
     inp.value = S.names[i] || "";
+    inp.style.marginBottom = "8px";
     inp.addEventListener("input", (e) => { S.names[i] = e.target.value; });
-    wrap.appendChild(inp);
-    box.appendChild(wrap);
+    box.appendChild(inp);
   }
 
   document.querySelectorAll("[data-step]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const field = btn.dataset.field;
-      const dir = parseInt(btn.dataset.step, 10);
-      adjust(field, dir);
-    });
+    btn.addEventListener("click", () => adjust(btn.dataset.field, parseInt(btn.dataset.step, 10)));
   });
-
   document.getElementById("startBtn").addEventListener("click", startGame);
 }
 
-function stepperRow(label, field, val, min, max) {
+function sideColor(side) {
+  return { mafia: "var(--accent)", citizen: "var(--good)", cult: "var(--cult)", mercenary: "var(--merc)" }[side] || "var(--text)";
+}
+
+function stepperRow(label, field, val) {
   return `
     <div class="row">
       <div><div class="name">${label}</div></div>
@@ -234,39 +270,43 @@ function stepperRow(label, field, val, min, max) {
 }
 
 function adjust(field, dir) {
-  const limits = {
-    count:  [4, 20],
-    mafia:  [1, 19],
-    doctor: [0, 1],
-    police: [0, 1],
-  };
-  const [min, max] = limits[field];
-  let v = S[field] + dir;
-  v = Math.max(min, Math.min(max, v));
-  S[field] = v;
-  // 마피아가 인원보다 많아지지 않게
-  if (S.mafia > S.count - 1) S.mafia = S.count - 1;
+  if (field === "count") {
+    S.count = Math.max(4, Math.min(20, S.count + dir));
+  } else if (field === "mafia") {
+    S.roleCounts.mafia = Math.max(1, Math.min(19, S.roleCounts.mafia + dir));
+  } else {
+    S.roleCounts[field] = Math.max(0, Math.min(1, S.roleCounts[field] + dir));
+  }
+  if (S.roleCounts.mafia > S.count - 1) S.roleCounts.mafia = S.count - 1;
   render();
 }
 
 function startGame() {
-  // 직업 배열 생성
   const pool = [];
-  for (let i = 0; i < S.mafia; i++) pool.push("mafia");
-  for (let i = 0; i < S.doctor; i++) pool.push("doctor");
-  for (let i = 0; i < S.police; i++) pool.push("police");
+  for (let i = 0; i < S.roleCounts.mafia; i++) pool.push("mafia");
+  SPECIALS.forEach((s) => { for (let i = 0; i < S.roleCounts[s.key]; i++) pool.push(s.key); });
   while (pool.length < S.count) pool.push("citizen");
   shuffle(pool);
 
-  S.players = [];
-  for (let i = 0; i < S.count; i++) {
-    S.players.push({
-      id: i,
-      name: (S.names[i] && S.names[i].trim()) || `${i + 1}번`,
-      role: pool[i],
-      alive: true,
-    });
+  S.players = pool.map((role, i) => ({
+    id: i,
+    name: (S.names[i] && S.names[i].trim()) || `${i + 1}번`,
+    role,
+    team: ROLES[role].side,
+    alive: true,
+    shots: role === "vigilante" ? VIGILANTE_SHOTS : 0,
+    politicianImmune: role === "politician",
+    follower: false,
+    mercTarget: null,
+  }));
+
+  // 용병 의뢰 대상 배정 (용병 본인 제외 임의)
+  const merc = S.players.find((p) => p.role === "mercenary");
+  if (merc) {
+    const candidates = S.players.filter((p) => p.id !== merc.id);
+    merc.mercTarget = candidates[Math.floor(Math.random() * candidates.length)].id;
   }
+
   S.revealIndex = 0;
   S.revealShown = false;
   S.screen = "reveal";
@@ -286,154 +326,224 @@ function renderReveal() {
         <div class="who">${p.name} 님, 본인 차례입니다.</div>
         <div class="desc">다른 사람이 화면을 보지 못하게 한 뒤 눌러주세요.</div>
         <button class="btn" id="showBtn" style="margin-top:18px;">내 직업 보기</button>
-      </div>
-    `;
-    document.getElementById("showBtn").addEventListener("click", () => {
-      S.revealShown = true; render();
-    });
-  } else {
-    const r = ROLES[p.role];
-    app.innerHTML = `
-      <h1>역할 확인</h1>
-      <div class="sub">${S.revealIndex + 1} / ${S.players.length}</div>
-      <div class="card reveal">
-        <div class="who">${p.name} 님의 직업</div>
-        <div class="role ${r.cls}">${r.name}</div>
-        <div class="desc">${r.desc}</div>
-        <button class="btn" id="nextBtn" style="margin-top:18px;">
-          ${last ? "확인 완료 — 게임 시작" : "확인했어요 (다음 사람에게)"}
-        </button>
-      </div>
-    `;
-    document.getElementById("nextBtn").addEventListener("click", () => {
-      if (last) {
-        S.day = 1;
-        startNight();
-      } else {
-        S.revealIndex++;
-        S.revealShown = false;
-        render();
-      }
-    });
+      </div>`;
+    document.getElementById("showBtn").addEventListener("click", () => { S.revealShown = true; render(); });
+    return;
   }
+
+  const r = ROLES[p.role];
+  let extra = "";
+  if (p.role === "mercenary" && p.mercTarget != null) {
+    extra = `<div class="extra" style="color:var(--merc)">의뢰 대상: <b>${S.players[p.mercTarget].name}</b> 님<br>
+      <span class="small">이 사람을 끝까지 생존시키면 단독 승리합니다.</span></div>`;
+  } else if (p.role === "vigilante") {
+    extra = `<div class="extra small">사용 가능한 총알: ${p.shots}발</div>`;
+  } else if (p.role === "mafia" || p.role === "contractor") {
+    const team = S.players.filter((x) => x.team === "mafia" && x.id !== p.id).map((x) => x.name);
+    extra = `<div class="extra small">동료 마피아팀: ${team.length ? team.join(", ") : "없음"}</div>`;
+  }
+
+  app.innerHTML = `
+    <h1>역할 확인</h1>
+    <div class="sub">${S.revealIndex + 1} / ${S.players.length}</div>
+    <div class="card reveal">
+      <div class="who">${p.name} 님의 직업</div>
+      <div class="role ${r.cls}">${r.name}</div>
+      <div class="desc">${r.desc}</div>
+      ${extra}
+      <button class="btn" id="nextBtn" style="margin-top:18px;">
+        ${last ? "확인 완료 — 게임 시작" : "확인했어요 (다음 사람에게)"}
+      </button>
+    </div>`;
+  document.getElementById("nextBtn").addEventListener("click", () => {
+    if (last) { S.day = 1; startNight(); }
+    else { S.revealIndex++; S.revealShown = false; render(); }
+  });
 }
+
+/* ---------- 헬퍼 ---------- */
+function alivePlayers() { return S.players.filter((p) => p.alive); }
+function aliveRole(roleKey) { return S.players.filter((p) => p.alive && p.role === roleKey); }
+function cultLeaderAlive() { return S.players.some((p) => p.alive && p.role === "cult"); }
+function byId(id) { return S.players.find((p) => p.id === id); }
 
 /* ---------- 3. 밤 ---------- */
 function startNight() {
-  S.night = { step: "intro", mafiaTarget: null, doctorTarget: null, policeTarget: null };
+  const steps = ["intro"];
+  if (aliveRole("mafia").length) steps.push("mafia");
+  if (aliveRole("contractor").length) steps.push("contractor");
+  if (aliveRole("cult").length) steps.push("cult");
+  if (S.players.some((p) => p.alive && p.role === "vigilante" && p.shots > 0)) steps.push("vigilante");
+  if (aliveRole("doctor").length) steps.push("doctor");
+  if (aliveRole("police").length) steps.push("police");
+  steps.push("resolve");
+
+  S.night = { steps, idx: 0, mafia: null, contractor: null, cult: null, vigilante: null, doctor: null, police: null };
   S.screen = "night";
   render();
 }
 
-function aliveBy(roleKey) {
-  return S.players.filter((p) => p.alive && p.role === roleKey);
-}
-function alivePlayers() {
-  return S.players.filter((p) => p.alive);
-}
+function nightNext() { S.night.idx++; render(); }
 
 function renderNight() {
   const n = S.night;
+  const step = n.steps[n.idx];
 
-  if (n.step === "intro") {
+  if (step === "intro") {
     return nightScreen({
       title: `🌙 ${S.day}번째 밤`,
-      note: "모두 눈을 감습니다. 사회자는 화면을 보며 진행하세요.",
-      body: "",
-      next: () => { n.step = "mafia"; render(); },
-      nextLabel: "밤 시작",
+      note: "모두 눈을 감습니다. 사회자는 화면 순서대로 진행하세요.",
+      body: "", next: nightNext, nextLabel: "밤 시작",
     });
   }
-
-  if (n.step === "mafia") {
+  if (step === "mafia") {
     return nightScreen({
       title: "🔪 마피아",
       note: "마피아는 눈을 뜨고, 제거할 사람을 한 명 지목합니다.",
-      body: targetGrid((id) => { n.mafiaTarget = id; render(); }, n.mafiaTarget),
-      next: n.mafiaTarget != null ? () => {
-        n.step = S.doctor ? "doctor" : (S.police ? "police" : "resolve");
-        render();
-      } : null,
-      nextLabel: "마피아 지목 완료",
+      body: targetGrid((id) => { n.mafia = id; render(); }, n.mafia),
+      next: n.mafia != null ? nightNext : null, nextLabel: "마피아 지목 완료",
     });
   }
-
-  if (n.step === "doctor") {
+  if (step === "contractor") {
+    return nightScreen({
+      title: "🗡️ 청부업자",
+      note: "청부업자는 눈을 뜨고, 추가로 제거할 사람을 지목합니다.",
+      body: targetGrid((id) => { n.contractor = id; render(); }, n.contractor),
+      next: nightNext, nextLabel: "지목 완료",
+      skip: () => { n.contractor = null; nightNext(); },
+    });
+  }
+  if (step === "cult") {
+    return nightScreen({
+      title: "🔮 교주",
+      note: "교주는 눈을 뜨고, 신도로 포섭할 사람을 한 명 지목합니다. (이미 신도면 효과 없음)",
+      body: targetGrid((id) => { n.cult = id; render(); }, n.cult),
+      next: nightNext, nextLabel: "포섭 완료",
+      skip: () => { n.cult = null; nightNext(); },
+    });
+  }
+  if (step === "vigilante") {
+    const v = S.players.find((p) => p.alive && p.role === "vigilante");
+    return nightScreen({
+      title: "🔫 자경단원",
+      note: `자경단원은 사살할 사람을 지목할 수 있습니다. (남은 총알 ${v ? v.shots : 0}발) 무고한 시민팀을 쏘면 본인도 사망합니다.`,
+      body: targetGrid((id) => { n.vigilante = id; render(); }, n.vigilante),
+      next: nightNext, nextLabel: "사격 완료",
+      skip: () => { n.vigilante = null; nightNext(); },
+    });
+  }
+  if (step === "doctor") {
     return nightScreen({
       title: "💉 의사",
       note: "의사는 눈을 뜨고, 보호할 사람을 한 명 지목합니다.",
-      body: targetGrid((id) => { n.doctorTarget = id; render(); }, n.doctorTarget),
-      next: n.doctorTarget != null ? () => {
-        n.step = S.police ? "police" : "resolve"; render();
-      } : null,
-      nextLabel: "의사 지목 완료",
-      skip: () => { n.doctorTarget = null; n.step = S.police ? "police" : "resolve"; render(); },
+      body: targetGrid((id) => { n.doctor = id; render(); }, n.doctor),
+      next: nightNext, nextLabel: "보호 완료",
+      skip: () => { n.doctor = null; nightNext(); },
     });
   }
-
-  if (n.step === "police") {
-    const t = n.policeTarget != null ? S.players[n.policeTarget] : null;
-    let resultHtml = "";
+  if (step === "police") {
+    const t = n.police != null ? byId(n.police) : null;
+    let info = "";
     if (t) {
-      const isMafia = t.role === "mafia";
-      resultHtml = `<div class="warnbox" style="border-color:${isMafia ? "var(--accent)" : "var(--good)"};
+      const isMafia = t.team === "mafia";
+      info = `<div class="warnbox" style="border-color:${isMafia ? "var(--accent)" : "var(--good)"};
         color:${isMafia ? "var(--accent)" : "var(--good)"};background:rgba(255,255,255,.04);">
         🔎 ${t.name} → <b>${isMafia ? "마피아입니다" : "마피아가 아닙니다"}</b>
-        <div class="small" style="margin-top:4px;color:var(--muted);">경찰에게만 조용히 보여주세요.</div>
-        </div>`;
+        <div class="small" style="margin-top:4px;color:var(--muted);">경찰에게만 조용히 보여주세요.</div></div>`;
     }
     return nightScreen({
       title: "👮 경찰",
       note: "경찰은 눈을 뜨고, 조사할 사람을 한 명 지목합니다.",
-      body: resultHtml + targetGrid((id) => { n.policeTarget = id; render(); }, n.policeTarget),
-      next: () => { n.step = "resolve"; render(); },
-      nextLabel: "조사 완료",
-      skip: () => { n.policeTarget = null; n.step = "resolve"; render(); },
+      body: info + targetGrid((id) => { n.police = id; render(); }, n.police),
+      next: nightNext, nextLabel: "조사 완료",
+      skip: () => { n.police = null; nightNext(); },
     });
   }
+  if (step === "resolve") return resolveNight();
+}
 
-  if (n.step === "resolve") {
-    // 결과 계산
-    let killedName = null;
-    if (n.mafiaTarget != null && n.mafiaTarget !== n.doctorTarget) {
-      const victim = S.players[n.mafiaTarget];
-      if (victim.alive) { victim.alive = false; killedName = victim.name; }
+function resolveNight() {
+  const n = S.night;
+  const protectedId = n.doctor;
+
+  // 공격 수집
+  const attacks = [];
+  if (n.mafia != null) attacks.push(n.mafia);
+  if (n.contractor != null) attacks.push(n.contractor);
+  if (n.vigilante != null) {
+    attacks.push(n.vigilante);
+    const v = S.players.find((p) => p.role === "vigilante" && p.alive);
+    if (v) v.shots = Math.max(0, v.shots - 1);
+  }
+
+  const deaths = new Set();
+  attacks.forEach((id) => { if (id !== protectedId) deaths.add(id); });
+
+  const savedHappened = attacks.length > 0 && attacks.includes(protectedId);
+
+  // 자경단 죄책감: 무고한 시민팀을 죽였으면 본인도 사망
+  if (n.vigilante != null && deaths.has(n.vigilante)) {
+    const victim = byId(n.vigilante);
+    if (victim.team === "citizen") {
+      const v = S.players.find((p) => p.role === "vigilante" && p.alive);
+      if (v) deaths.add(v.id);
     }
-    const saved = n.mafiaTarget != null && n.mafiaTarget === n.doctorTarget;
-    S.lastNightResult = { killedName, saved };
-    S.log.push(`밤 ${S.day}: ${killedName ? killedName + " 사망" : (saved ? "의사가 보호 — 사망자 없음" : "사망자 없음")}`);
-
-    const win = checkWin();
-    return nightScreen({
-      title: "☀️ 아침이 밝았습니다",
-      note: "사회자가 결과를 발표합니다.",
-      body: `<div class="result center">
-        ${killedName
-          ? `지난 밤, <b style="color:var(--accent)">${killedName}</b> 님이 사망했습니다.`
-          : (saved ? `의사의 활약으로 <b style="color:var(--good)">아무도 죽지 않았습니다.</b>`
-                   : `지난 밤은 <b>아무 일도 없었습니다.</b>`)}
-      </div>`,
-      next: () => {
-        if (win) { S.screen = "end"; S.winner = win; render(); }
-        else { startDay(); }
-      },
-      nextLabel: win ? "결과 보기" : "낮 토론으로",
-    });
   }
+
+  const deadNames = [];
+  deaths.forEach((id) => {
+    const p = byId(id);
+    if (p.alive) { p.alive = false; deadNames.push(p.name); }
+  });
+
+  // 교주 사망 시 신도 원복
+  if (!cultLeaderAlive()) {
+    S.players.forEach((p) => { if (p.follower) { p.follower = false; p.team = ROLES[p.role].side; } });
+  }
+
+  // 포섭 (대상이 아직 생존해야 성공, 교주 생존 시)
+  let convertedName = null;
+  if (n.cult != null && cultLeaderAlive()) {
+    const t = byId(n.cult);
+    if (t && t.alive && t.team !== "cult" && t.role !== "cult") {
+      t.team = "cult"; t.follower = true; convertedName = t.name;
+    }
+  }
+
+  // 용병: 의뢰 대상 사망 시 시민팀 합류
+  const merc = S.players.find((p) => p.role === "mercenary");
+  if (merc && merc.team === "mercenary" && merc.mercTarget != null && !byId(merc.mercTarget).alive) {
+    merc.team = "citizen";
+    S.log.push(`밤 ${S.day}: 용병의 의뢰 대상이 사망 — 용병이 시민팀에 합류`);
+  }
+
+  S.lastNightResult = { deadNames, savedHappened, convertedName };
+  S.log.push(`밤 ${S.day}: ${deadNames.length ? deadNames.join(", ") + " 사망" : (savedHappened ? "의사 보호 — 사망자 없음" : "사망자 없음")}${convertedName ? ` / ${convertedName} 포섭` : ""}`);
+
+  const win = checkWin();
+
+  let msg;
+  if (deadNames.length) msg = `지난 밤, <b style="color:var(--accent)">${deadNames.join(", ")}</b> 님이 사망했습니다.`;
+  else if (savedHappened) msg = `의사의 활약으로 <b style="color:var(--good)">아무도 죽지 않았습니다.</b>`;
+  else msg = `지난 밤은 <b>아무 일도 없었습니다.</b>`;
+
+  return nightScreen({
+    title: "☀️ 아침이 밝았습니다",
+    note: "사회자가 결과를 발표합니다. (포섭은 비공개입니다)",
+    body: `<div class="result center">${msg}</div>`,
+    next: () => { if (win) endGame(win); else startDay(); },
+    nextLabel: win ? "결과 보기" : "낮 토론으로",
+  });
 }
 
 function nightScreen({ title, note, body, next, nextLabel, skip }) {
   app.innerHTML = `
     <div class="phase-tag">NIGHT · ${S.day}일차</div>
     <h1>${title}</h1>
-    <div class="alive-strip">생존: ${alivePlayers().map(p => p.name).join(", ")}</div>
-    <div class="card">
-      <div class="step-note">${note}</div>
-      ${body}
-    </div>
+    <div class="alive-strip">생존(${alivePlayers().length}): ${alivePlayers().map((p) => p.name).join(", ")}</div>
+    <div class="card"><div class="step-note">${note}</div>${body}</div>
     <button class="btn" id="nextBtn" ${next ? "" : "disabled"}>${nextLabel}</button>
-    ${skip ? `<button class="btn ghost" id="skipBtn">건너뛰기 / 대상 없음</button>` : ""}
-  `;
+    ${skip ? `<button class="btn ghost" id="skipBtn">건너뛰기 / 대상 없음</button>` : ""}`;
   if (next) document.getElementById("nextBtn").addEventListener("click", next);
   if (skip) document.getElementById("skipBtn").addEventListener("click", skip);
   bindTargetGrid();
@@ -442,20 +552,17 @@ function nightScreen({ title, note, body, next, nextLabel, skip }) {
 function targetGrid(onPick, selectedId) {
   const tiles = alivePlayers().map((p) => {
     const sel = p.id === selectedId ? "selected" : "";
-    return `<div class="ptile ${sel}" data-pick="${p.id}">${p.name}</div>`;
+    const tag = p.follower ? `<span class="tag">신도</span>` : "";
+    return `<div class="ptile ${sel}" data-pick="${p.id}">${p.name}${tag}</div>`;
   }).join("");
-  // dead 표시도 포함 (선택 불가)
-  const dead = S.players.filter(p => !p.alive)
-    .map(p => `<div class="ptile dead">${p.name}<small>사망</small></div>`).join("");
+  const dead = S.players.filter((p) => !p.alive)
+    .map((p) => `<div class="ptile dead">${p.name}<small>사망</small></div>`).join("");
   window.__onPick = onPick;
   return `<div class="players">${tiles}${dead}</div>`;
 }
 function bindTargetGrid() {
   document.querySelectorAll("[data-pick]").forEach((el) => {
-    el.addEventListener("click", () => {
-      const id = parseInt(el.dataset.pick, 10);
-      if (window.__onPick) window.__onPick(id);
-    });
+    el.addEventListener("click", () => { if (window.__onPick) window.__onPick(parseInt(el.dataset.pick, 10)); });
   });
 }
 
@@ -464,7 +571,7 @@ let timerHandle = null;
 function startDay() {
   S.screen = "day";
   S.dayStep = "discuss";
-  S.discussSeconds = 180; // 3분 기본
+  S.discussSeconds = 180;
   S.voteTarget = null;
   render();
 }
@@ -474,71 +581,84 @@ function renderDay() {
     app.innerHTML = `
       <div class="phase-tag">DAY · ${S.day}일차</div>
       <h1>🗣️ 낮 토론</h1>
-      <div class="alive-strip">생존: ${alivePlayers().map(p => p.name).join(", ")}</div>
+      <div class="alive-strip">생존(${alivePlayers().length}): ${alivePlayers().map((p) => p.name).join(", ")}</div>
       <div class="card center">
         <div class="step-note">서로 의심되는 사람을 토론합니다.</div>
         <div class="timer" id="timer">${fmt(S.discussSeconds)}</div>
         <button class="btn secondary" id="toggleTimer">시작 / 일시정지</button>
         <button class="btn ghost" id="add60">+1분</button>
       </div>
-      <button class="btn" id="toVote">투표로 넘어가기</button>
-    `;
+      <button class="btn" id="toVote">투표로 넘어가기</button>`;
     document.getElementById("toggleTimer").addEventListener("click", toggleTimer);
     document.getElementById("add60").addEventListener("click", () => {
       S.discussSeconds += 60; document.getElementById("timer").textContent = fmt(S.discussSeconds);
     });
-    document.getElementById("toVote").addEventListener("click", () => {
-      stopTimer(); S.dayStep = "vote"; render();
-    });
-  } else if (S.dayStep === "vote") {
+    document.getElementById("toVote").addEventListener("click", () => { stopTimer(); S.dayStep = "vote"; render(); });
+    return;
+  }
+
+  if (S.dayStep === "vote") {
+    const hasPol = S.players.some((p) => p.alive && p.role === "politician");
     app.innerHTML = `
       <div class="phase-tag">DAY · ${S.day}일차</div>
       <h1>🗳️ 투표</h1>
-      <div class="step-note">처형할 사람을 한 명 지목합니다. (동률·기권은 사회자 재량)</div>
-      <div class="card">
-        ${targetGrid((id) => { S.voteTarget = id; render(); }, S.voteTarget)}
-      </div>
+      <div class="step-note">처형할 사람을 한 명 지목합니다. (동률·기권은 사회자 재량)
+        ${hasPol ? "<br>※ 정치인은 2표를 행사합니다." : ""}</div>
+      <div class="card">${targetGrid((id) => { S.voteTarget = id; render(); }, S.voteTarget)}</div>
       <button class="btn" id="execBtn" ${S.voteTarget != null ? "" : "disabled"}>처형 확정</button>
-      <button class="btn ghost" id="noExec">아무도 처형하지 않음</button>
-    `;
+      <button class="btn ghost" id="noExec">아무도 처형하지 않음</button>`;
     bindTargetGrid();
     document.getElementById("execBtn").addEventListener("click", () => {
-      const v = S.players[S.voteTarget];
+      const v = byId(S.voteTarget);
+      if (v.role === "politician" && v.politicianImmune) {
+        v.politicianImmune = false;
+        S.log.push(`낮 ${S.day}: ${v.name} 정치인 면역으로 생존`);
+        S.executed = v; S.execImmune = true; S.dayStep = "result"; render();
+        return;
+      }
       v.alive = false;
+      S.execImmune = false;
+      // 교주 처형 시 신도 원복
+      if (v.role === "cult") {
+        S.players.forEach((p) => { if (p.follower) { p.follower = false; p.team = ROLES[p.role].side; } });
+      }
+      // 용병 의뢰 대상 처형 시 합류
+      const merc = S.players.find((p) => p.role === "mercenary");
+      if (merc && merc.team === "mercenary" && merc.mercTarget === v.id) merc.team = "citizen";
       S.log.push(`낮 ${S.day}: 투표로 ${v.name}(${ROLES[v.role].name}) 처형`);
       finishDay(v);
     });
     document.getElementById("noExec").addEventListener("click", () => {
       S.log.push(`낮 ${S.day}: 처형 없음`);
-      finishDay(null);
+      S.executed = null; S.execImmune = false; finishDay(null);
     });
-  } else if (S.dayStep === "result") {
+    return;
+  }
+
+  if (S.dayStep === "result") {
     const v = S.executed;
     const r = v ? ROLES[v.role] : null;
-    const win = checkWin();
+    const win = S.execImmune ? null : checkWin();
+    let body;
+    if (S.execImmune) {
+      body = `<b>${v.name}</b> 님은 <b style="color:var(--accent-2)">정치인</b>! 면역으로 생존했습니다.`;
+    } else if (v) {
+      body = `<b>${v.name}</b> 님이 처형되었습니다.<br>정체는 <b style="color:${sideColor(v.team)}">${r.name}</b> 였습니다.`;
+    } else {
+      body = `이번 낮에는 아무도 처형하지 않았습니다.`;
+    }
     app.innerHTML = `
       <div class="phase-tag">DAY · ${S.day}일차</div>
       <h1>처형 결과</h1>
-      <div class="card center result">
-        ${v
-          ? `<b>${v.name}</b> 님이 처형되었습니다.<br>
-             정체는 <b class="${r.cls === 'mafia' ? '' : ''}" style="color:${r.side==='mafia'?'var(--accent)':'var(--good)'}">${r.name}</b> 였습니다.`
-          : `이번 낮에는 아무도 처형하지 않았습니다.`}
-      </div>
-      <button class="btn" id="cont">${win ? "결과 보기" : "다음 밤으로"}</button>
-    `;
+      <div class="card center result">${body}</div>
+      <button class="btn" id="cont">${win ? "결과 보기" : "다음 밤으로"}</button>`;
     document.getElementById("cont").addEventListener("click", () => {
-      if (win) { S.screen = "end"; S.winner = win; render(); }
-      else { S.day++; startNight(); }
+      if (win) endGame(win); else { S.day++; startNight(); }
     });
   }
 }
 
-function finishDay(victim) {
-  S.executed = victim;
-  S.dayStep = "result";
-  render();
-}
+function finishDay(victim) { S.executed = victim; S.dayStep = "result"; render(); }
 
 function toggleTimer() {
   if (timerHandle) { stopTimer(); return; }
@@ -553,45 +673,55 @@ function stopTimer() { if (timerHandle) { clearInterval(timerHandle); timerHandl
 
 /* ---------- 5. 승패 ---------- */
 function checkWin() {
-  const aliveMafia = aliveBy("mafia").length;
-  const aliveCitizen = alivePlayers().length - aliveMafia;
-  if (aliveMafia === 0) return "citizen";
-  if (aliveMafia >= aliveCitizen) return "mafia";
-  return null;
+  const alive = alivePlayers();
+  const total = alive.length;
+  const mafia = alive.filter((p) => p.team === "mafia").length;
+  const cult = alive.filter((p) => p.team === "cult").length;
+  const leader = cultLeaderAlive();
+
+  let winner = null;
+  if (leader && cult === total) winner = "cult";
+  else if (mafia > 0 && mafia >= total - mafia) winner = "mafia";
+  else if (mafia === 0 && !leader) winner = "citizen";
+
+  if (!winner) return null;
+
+  // 용병 단독 목표 달성 여부
+  const merc = S.players.find((p) => p.role === "mercenary");
+  const mercWin = !!(merc && merc.alive && merc.mercTarget != null && byId(merc.mercTarget).alive
+                     && merc.team === "mercenary");
+  return { winner, mercWin };
 }
 
+function endGame(win) { S.screen = "end"; S.winner = win; render(); }
+
 function renderEnd() {
-  const win = S.winner;
-  const cls = win === "mafia" ? "mafia" : "citizen";
-  const label = win === "mafia" ? "마피아 승리 🔪" : "시민 승리 🎉";
+  const { winner, mercWin } = S.winner;
+  const label = { mafia: "마피아 승리 🔪", citizen: "시민 승리 🎉", cult: "교주팀 승리 🔮" }[winner];
+
   const rows = S.players.map((p) => {
     const r = ROLES[p.role];
+    const teamTxt = p.follower ? " · 신도" : "";
     return `<div class="row" style="margin-bottom:8px;">
       <div class="name">${p.name} ${p.alive ? "" : '<span class="pill">사망</span>'}</div>
-      <div class="small" style="color:${r.side==='mafia'?'var(--accent)':'var(--good)'}">${r.name}</div>
+      <div class="small" style="color:${sideColor(p.team)}">${r.name}${teamTxt}</div>
     </div>`;
   }).join("");
-  const logHtml = S.log.map(l => `<div class="small">· ${l}</div>`).join("");
+  const logHtml = S.log.map((l) => `<div class="small">· ${l}</div>`).join("");
 
   app.innerHTML = `
     <div class="end">
       <div class="phase-tag center">GAME OVER</div>
-      <div class="winner ${cls} center">${label}</div>
-      <div class="card">
-        <h2>전체 직업 공개</h2>
-        ${rows}
-      </div>
-      <div class="card">
-        <h2>진행 기록</h2>
-        ${logHtml || '<div class="small">기록 없음</div>'}
-      </div>
+      <div class="winner ${winner} center">${label}</div>
+      ${mercWin ? `<div class="winner merc center" style="font-size:20px;color:var(--merc)">＋ 용병 단독 승리 🎯</div>` : ""}
+      <div class="card"><h2>전체 직업 공개</h2>${rows}</div>
+      <div class="card"><h2>진행 기록</h2>${logHtml || '<div class="small">기록 없음</div>'}</div>
       <button class="btn" id="again">새 게임</button>
       <button class="btn secondary" id="sameSetup">같은 설정으로 다시</button>
-    </div>
-  `;
+    </div>`;
   document.getElementById("again").addEventListener("click", () => { S = defaultState(); render(); });
   document.getElementById("sameSetup").addEventListener("click", () => {
-    const keep = { count: S.count, mafia: S.mafia, doctor: S.doctor, police: S.police, names: S.names.slice() };
+    const keep = { count: S.count, roleCounts: { ...S.roleCounts }, names: S.names.slice() };
     S = defaultState();
     Object.assign(S, keep);
     render();
@@ -607,8 +737,7 @@ function shuffle(a) {
   return a;
 }
 function fmt(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
+  const m = Math.floor(sec / 60), s = sec % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
