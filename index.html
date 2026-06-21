@@ -123,6 +123,27 @@
         <p class="muted">네이버 웹툰 기준 · <span id="wtCount">0</span>편</p>
       </div>
 
+      <!-- 웹툰 취향 결 -->
+      <div id="wtGyeol" hidden>
+        <div class="gyeol">
+          <div class="gyeol-chart card">
+            <div id="wtRadarAgg"></div>
+          </div>
+          <div class="gyeol-side">
+            <div class="stat-row" id="wtStats"></div>
+            <div class="callout slim">
+              <div class="callout-head">✨ 웹툰 취향 관찰</div>
+              <div class="callout-body" id="wtObserve"></div>
+            </div>
+            <div class="bars" id="wtBars"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head mt">
+        <h2>🗂 웹툰 서재</h2>
+      </div>
+
       <div class="toolbar">
         <div class="toolbar-right">
           <button class="del-toggle" id="wtDeleteBtn">🗑 삭제</button>
@@ -228,6 +249,10 @@
             <option value="wish">관심</option>
           </select>
         </label>
+        <div class="axis-block">
+          <div class="axis-block-head">특성 <span class="muted" style="font-weight:500">· 1~5로 정해요</span></div>
+          <div class="axis-inputs-wrap" id="wtAxisInputs"></div>
+        </div>
         <p class="form-note">※ 입력한 웹툰은 이 브라우저에 저장돼요(localStorage).</p>
         <button class="btn-primary" type="submit">웹툰 서재에 추가</button>
       </form>

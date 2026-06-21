@@ -484,6 +484,48 @@ function renderWebtoons() {
   document.getElementById("webtoonGrid").innerHTML =
     shown.map(webtoonCardHTML).join("") ||
     `<p class="muted">${list.length ? "이 조건에 맞는 웹툰이 없어요." : "아직 추가한 웹툰이 없어요. 오른쪽 위 <b>+ 웹툰 직접 입력</b>으로 담아보세요."}</p>`;
+
+  renderWebtoonGyeol();
+}
+
+/* 웹툰 취향 결 — 특성 매긴 웹툰들의 평균 (책의 '독서 결'에 대응) */
+function renderWebtoonGyeol() {
+  const wrap = document.getElementById("wtGyeol");
+  const scored = lsArr(LS_WEBTOONS).filter((w) => Array.isArray(w.axes) && w.axes.length === WEBTOON_AXES.length);
+  if (!scored.length) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+
+  const sums = WEBTOON_AXES.map(() => 0);
+  scored.forEach((w) => w.axes.forEach((v, i) => (sums[i] += +v || 0)));
+  const avgs = WEBTOON_AXES.map((_, i) => sums[i] / scored.length);
+
+  drawRadar(document.getElementById("wtRadarAgg"), {
+    labels: WEBTOON_AXES, values: avgs, max: 5, size: 440, accent: "#7c3aed",
+  });
+
+  const total = lsArr(LS_WEBTOONS).length;
+  const strong = avgs.filter((v) => v >= 3.5).length;
+  document.getElementById("wtStats").innerHTML = `
+    <div class="stat"><div class="stat-num">${total}</div><div class="stat-cap">담은 웹툰</div></div>
+    <div class="stat"><div class="stat-num">${scored.length}</div><div class="stat-cap">특성 매긴 웹툰</div></div>
+    <div class="stat"><div class="stat-num">${strong}/${WEBTOON_AXES.length}</div><div class="stat-cap">두드러진 특성</div></div>`;
+
+  const order = avgs.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+  const top = order.slice(0, 2).map((o) => WEBTOON_AXES[o.i]);
+  const low = order[order.length - 1];
+  document.getElementById("wtObserve").innerHTML =
+    `담은 웹툰들의 특성을 모아보면 <b>${top.join("·")}</b>를 중시하는 취향이 보이고, ` +
+    `<b>${WEBTOON_AXES[low.i]}</b>는 상대적으로 덜 따지는 편이에요.`;
+
+  document.getElementById("wtBars").innerHTML = WEBTOON_AXES.map((label, i) => {
+    const pct = (avgs[i] / 5) * 100;
+    return `
+      <div class="bar-row">
+        <div class="bar-label">${label}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="bar-val">${avgs[i].toFixed(1)}</div>
+      </div>`;
+  }).join("");
 }
 
 function deleteWebtoon(id) {
@@ -519,11 +561,10 @@ function openWebtoon(id) {
         ? `'${w.author}' 작가의 다른 작품이 아직 서재에 없어요.<br/>같은 작가의 웹툰을 더 추가하면 여기에 모여요.`
         : "작가 정보가 없어요. 작가를 입력하면 같은 작가의 작품이 여기 모여요."}</div>`;
 
-  // 장르별 특성
-  const traits = WEBTOON_TRAITS[w.genre] || [];
-  const traitsHTML = traits.length
-    ? traits.map((t) => `<span class="trait-chip">${t}</span>`).join("")
-    : `<span class="muted">이 장르의 특성 정보가 없어요.</span>`;
+  // 특성 6축 레이더
+  const charHTML = Array.isArray(w.axes)
+    ? `<div class="modal-radar" id="wtRadar"></div>`
+    : `<div class="review-empty">특성이 아직 없어요.<br/>웹툰을 추가할 때 6축을 매기면 여기 레이더로 떠요.</div>`;
 
   document.getElementById("modalBody").innerHTML = `
     <div class="card detail-head">
@@ -547,9 +588,9 @@ function openWebtoon(id) {
         <div class="reco-books">${othersHTML}</div>
       </div>
       <div class="card detail-col">
-        <div class="dc-head">🏷 특성 <span class="dc-sub">${w.genre || ""} 장르</span></div>
-        <div class="trait-wrap">${traitsHTML}</div>
-        <div class="char-note">※ 네이버 웹툰 장르 분류에 따른 대표 특성이에요.</div>
+        <div class="dc-head">📊 특성 (6축) <span class="dc-sub">${w.genre || ""} 장르</span></div>
+        ${charHTML}
+        <div class="char-note">※ 작화·스토리·몰입도·연출·캐릭터·독창성을 1~5로.</div>
       </div>
     </div>
 
@@ -558,6 +599,11 @@ function openWebtoon(id) {
 
   document.getElementById("bookModal").hidden = false;
   document.body.classList.add("modal-open");
+  if (Array.isArray(w.axes)) {
+    drawRadar(document.getElementById("wtRadar"), {
+      labels: WEBTOON_AXES, values: w.axes, max: 5, size: 380, accent: "#7c3aed",
+    });
+  }
   wireWebtoonEvents(w.id);
 }
 
@@ -587,6 +633,17 @@ function initWebtoonUI() {
   document.getElementById("wtGenreFilters").innerHTML =
     `<button class="chip is-active" data-wgenre="all">전체</button>` +
     WEBTOON_GENRES.map((g) => `<button class="chip" data-wgenre="${g}">${g}</button>`).join("");
+
+  // 특성 6축 슬라이더 (입력 폼)
+  const axisWrap = document.getElementById("wtAxisInputs");
+  axisWrap.innerHTML = WEBTOON_AXES.map((a, i) => `
+    <label class="axis-row"><span class="axis-name">${a}</span>
+      <input type="range" name="ax${i}" min="1" max="5" step="1" value="3" />
+      <span class="axis-num" id="axnum${i}">3</span></label>`).join("");
+  axisWrap.addEventListener("input", (e) => {
+    if (e.target.type !== "range") return;
+    document.getElementById("axnum" + e.target.name.slice(2)).textContent = e.target.value;
+  });
 
   // 필터 그룹 3개 (내 분류 / 연재 / 장르)
   const bindFilterGroup = (groupId, key, setter) => {
@@ -635,11 +692,14 @@ function initWebtoonUI() {
       id: "w" + Date.now(),
       title: (f.get("title") || "").trim(), author: (f.get("author") || "").trim(),
       day: f.get("day") || "", genre: f.get("genre"), status: f.get("status"),
+      axes: WEBTOON_AXES.map((_, i) => +f.get("ax" + i) || 3),
       platform: "네이버 웹툰", cover: null,
     };
     if (!wt.title) return;
     const list = lsArr(LS_WEBTOONS); list.push(wt); lsSet(LS_WEBTOONS, list);
-    e.target.reset(); closeModal(wtFormModal); renderWebtoons();
+    e.target.reset();
+    WEBTOON_AXES.forEach((_, i) => (document.getElementById("axnum" + i).textContent = "3"));
+    closeModal(wtFormModal); renderWebtoons();
   });
 }
 
