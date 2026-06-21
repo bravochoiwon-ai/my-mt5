@@ -17,6 +17,7 @@
         <div class="sb-group">메뉴</div>
         <button class="tab is-active" data-tab="me"><span class="sb-ico">🧭</span><span>나</span></button>
         <button class="tab" data-tab="library"><span class="sb-ico">📚</span><span>나만의 도서관</span></button>
+        <button class="tab" data-tab="webtoon"><span class="sb-ico">🎨</span><span>웹툰</span></button>
       </nav>
       <div class="sb-foot">
         <div class="sb-user">
@@ -114,6 +115,30 @@
         </div>
       </div>
     </section>
+
+    <!-- ===================== 웹툰 ===================== -->
+    <section id="tab-webtoon" class="tab-panel">
+      <div class="section-head">
+        <h2>🎨 <span id="wtName">나</span>의 웹툰</h2>
+        <p class="muted">네이버 웹툰 기준 · <span id="wtCount">0</span>편</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <button class="del-toggle" id="wtDeleteBtn">🗑 삭제</button>
+          <div class="filters" id="wtFilters">
+            <button class="chip is-active" data-wfilter="all">전체</button>
+            <button class="chip" data-wfilter="watching">보는 중</button>
+            <button class="chip" data-wfilter="done">완독</button>
+            <button class="chip" data-wfilter="wish">관심</button>
+          </div>
+        </div>
+        <button class="btn-primary" id="addWebtoonBtn">+ 웹툰 직접 입력</button>
+      </div>
+      <p class="del-hint" id="wtDelHint" hidden>삭제할 웹툰의 ✕ 를 누르세요. 다 했으면 <b>완료</b>를 눌러요.</p>
+
+      <div class="grid grid-books" id="webtoonGrid"></div>
+    </section>
     </main>
   </div>
 
@@ -154,6 +179,39 @@
         </div>
         <p class="form-note">※ 7축 결·AI 줄거리·추천 별점은 저장 후 나중에 한 번 생성해 채웁니다(미리 생성·저장 방식).</p>
         <button class="btn-primary" type="submit">서재에 추가</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 웹툰 추가 모달 -->
+  <div class="modal-backdrop" id="wtFormModal" hidden>
+    <div class="modal modal-form">
+      <button class="modal-close" id="wtFormClose">✕  닫기</button>
+      <h3>웹툰 직접 입력 <span class="muted" style="font-weight:500">· 네이버 웹툰 기준</span></h3>
+      <form id="addWebtoonForm" class="book-form">
+        <label>제목 <input name="title" required placeholder="웹툰 제목" /></label>
+        <label>작가 <input name="author" placeholder="글/그림 작가" /></label>
+        <div class="form-row">
+          <label>요일
+            <select name="day">
+              <option value="">미지정</option>
+              <option>월</option><option>화</option><option>수</option><option>목</option>
+              <option>금</option><option>토</option><option>일</option><option>완결</option>
+            </select>
+          </label>
+          <label>장르
+            <select name="genre" id="wtGenreSelect"></select>
+          </label>
+        </div>
+        <label>상태
+          <select name="status">
+            <option value="watching">보는 중</option>
+            <option value="done">완독</option>
+            <option value="wish">관심</option>
+          </select>
+        </label>
+        <p class="form-note">※ 입력한 웹툰은 이 브라우저에 저장돼요(localStorage).</p>
+        <button class="btn-primary" type="submit">웹툰 서재에 추가</button>
       </form>
     </div>
   </div>

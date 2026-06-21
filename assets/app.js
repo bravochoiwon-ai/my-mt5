@@ -7,6 +7,7 @@ const LS_STATUS = "myspace.statusOverride.v1"; // 읽음/관심 직접 변경
 const LS_RATING = "myspace.myRatings.v1";      // 내 추천 별점·코멘트
 const LS_REVIEW = "myspace.myReviews.v1";      // 내 서평
 const LS_HIDDEN = "myspace.hiddenBooks.v1";    // 삭제(숨김)한 책 id
+const LS_WEBTOONS = "myspace.webtoons.v1";     // 직접 추가한 웹툰
 
 const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
 const lsArr = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
@@ -42,6 +43,7 @@ function renderProfile() {
   document.getElementById("libName").textContent = PROFILE.name;
   document.getElementById("sbName").textContent = PROFILE.name;
   document.getElementById("sbAvatar").textContent = PROFILE.name.slice(0, 1);
+  document.getElementById("wtName").textContent = PROFILE.name;
 
   document.getElementById("profileCards").innerHTML = PROFILE.cards
     .map(
@@ -390,7 +392,8 @@ function wireDetailEvents(id) {
 }
 
 function genreHue(genre) {
-  const map = { "과학기술": 210, "인문": 270, "신앙": 45, "소설": 330, "역사": 25, "자기계발": 160, "경제·경영": 190, "에세이": 300, "기타": 0 };
+  const map = { "과학기술": 210, "인문": 270, "신앙": 45, "소설": 330, "역사": 25, "자기계발": 160, "경제·경영": 190, "에세이": 300, "기타": 0,
+    "로맨스": 340, "판타지": 280, "액션": 0, "무협/사극": 30, "일상": 150, "개그": 50, "드라마": 200, "감성": 320, "스릴러": 250, "스포츠": 130 };
   return `hsl(${map[genre] ?? 220} 45% 55%)`;
 }
 
@@ -417,6 +420,110 @@ function initAddBook() {
   });
 }
 
+/* ============================================================
+   웹툰 (네이버 웹툰 기준) — 추가 / 삭제 / 필터
+   ============================================================ */
+let wtFilter = "all";
+let wtDeleteMode = false;
+
+const WT_STATUS = {
+  watching: { label: "보는 중", cls: "watching" },
+  done: { label: "완독", cls: "done" },
+  wish: { label: "관심", cls: "wish" },
+};
+
+function webtoonCardHTML(w) {
+  const st = WT_STATUS[w.status] || WT_STATUS.watching;
+  const day = w.day ? (w.day === "완결" ? "완결" : w.day + "요일") : "";
+  return `
+    <button class="book-card" data-id="${w.id}">
+      <span class="card-del" data-del="${w.id}" title="삭제">✕</span>
+      ${coverHTML(w, "card-cover")}
+      <div class="book-meta">
+        <div class="book-title">${w.title}</div>
+        <div class="book-author">${w.author || "작가 미상"}</div>
+        <div class="book-foot">
+          <span class="badge ${st.cls}">${st.label}</span>
+          <span class="book-genre">${w.genre || ""}</span>
+        </div>
+        <div class="book-stars muted">네이버 웹툰${day ? " · " + day : ""}</div>
+      </div>
+    </button>`;
+}
+
+function renderWebtoons() {
+  const list = lsArr(LS_WEBTOONS);
+  document.getElementById("wtCount").textContent = list.length;
+
+  let shown = list;
+  if (wtFilter !== "all") shown = list.filter((w) => w.status === wtFilter);
+
+  document.getElementById("webtoonGrid").innerHTML =
+    shown.map(webtoonCardHTML).join("") ||
+    `<p class="muted">${list.length ? "이 분류에 웹툰이 없어요." : "아직 추가한 웹툰이 없어요. 오른쪽 위 <b>+ 웹툰 직접 입력</b>으로 담아보세요."}</p>`;
+}
+
+function deleteWebtoon(id) {
+  const list = lsArr(LS_WEBTOONS);
+  const w = list.find((x) => x.id === id);
+  if (!w) return;
+  if (!confirm(`'${w.title}'을(를) 웹툰 서재에서 삭제할까요?`)) return;
+  lsSet(LS_WEBTOONS, list.filter((x) => x.id !== id));
+  renderWebtoons();
+}
+
+function initWebtoonUI() {
+  // 장르 옵션 채우기 (네이버 웹툰 기준)
+  document.getElementById("wtGenreSelect").innerHTML =
+    WEBTOON_GENRES.map((g) => `<option>${g}</option>`).join("");
+
+  // 필터
+  document.getElementById("wtFilters").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.querySelectorAll("#wtFilters .chip").forEach((c) => c.classList.remove("is-active"));
+    chip.classList.add("is-active");
+    wtFilter = chip.dataset.wfilter;
+    renderWebtoons();
+  });
+
+  // 카드(삭제) 클릭
+  document.getElementById("webtoonGrid").addEventListener("click", (e) => {
+    const del = e.target.closest(".card-del");
+    if (del) { e.stopPropagation(); deleteWebtoon(del.dataset.del); }
+  });
+
+  // 삭제 모드 토글
+  const delBtn = document.getElementById("wtDeleteBtn");
+  delBtn.addEventListener("click", () => {
+    wtDeleteMode = !wtDeleteMode;
+    delBtn.classList.toggle("on", wtDeleteMode);
+    delBtn.textContent = wtDeleteMode ? "✓ 완료" : "🗑 삭제";
+    document.getElementById("webtoonGrid").classList.toggle("del-on", wtDeleteMode);
+    document.getElementById("wtDelHint").hidden = !wtDeleteMode;
+  });
+
+  // 추가 모달
+  const wtFormModal = document.getElementById("wtFormModal");
+  document.getElementById("addWebtoonBtn").addEventListener("click", () => {
+    wtFormModal.hidden = false; document.body.classList.add("modal-open");
+  });
+  document.getElementById("wtFormClose").addEventListener("click", () => closeModal(wtFormModal));
+  document.getElementById("addWebtoonForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const wt = {
+      id: "w" + Date.now(),
+      title: (f.get("title") || "").trim(), author: (f.get("author") || "").trim(),
+      day: f.get("day") || "", genre: f.get("genre"), status: f.get("status"),
+      platform: "네이버 웹툰", cover: null,
+    };
+    if (!wt.title) return;
+    const list = lsArr(LS_WEBTOONS); list.push(wt); lsSet(LS_WEBTOONS, list);
+    e.target.reset(); closeModal(wtFormModal); renderWebtoons();
+  });
+}
+
 /* ---------- 모달 공통 ---------- */
 function closeModal(el) {
   el.hidden = true;
@@ -438,6 +545,6 @@ function initModals() {
 
 /* ---------- 부트 ---------- */
 document.addEventListener("DOMContentLoaded", () => {
-  initTabs(); renderProfile(); renderGyeol(); renderLibrary();
-  initLibraryUI(); initAddBook(); initModals();
+  initTabs(); renderProfile(); renderGyeol(); renderLibrary(); renderWebtoons();
+  initLibraryUI(); initAddBook(); initWebtoonUI(); initModals();
 });
