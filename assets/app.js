@@ -6,6 +6,7 @@ const LS_BOOKS = "myspace.userBooks.v1";       // 직접 추가한 책
 const LS_STATUS = "myspace.statusOverride.v1"; // 읽음/관심 직접 변경
 const LS_RATING = "myspace.myRatings.v1";      // 내 추천 별점·코멘트
 const LS_REVIEW = "myspace.myReviews.v1";      // 내 서평
+const LS_HIDDEN = "myspace.hiddenBooks.v1";    // 삭제(숨김)한 책 id
 
 const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
 const lsArr = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
@@ -13,9 +14,10 @@ const lsSet = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
 function allBooks() {
   const overrides = lsGet(LS_STATUS);
-  return [...SAMPLE_BOOKS, ...lsArr(LS_BOOKS)].map((b) =>
-    overrides[b.id] ? { ...b, status: overrides[b.id] } : b
-  );
+  const hidden = lsArr(LS_HIDDEN);
+  return [...SAMPLE_BOOKS, ...lsArr(LS_BOOKS)]
+    .filter((b) => !hidden.includes(b.id))
+    .map((b) => (overrides[b.id] ? { ...b, status: overrides[b.id] } : b));
 }
 function getBook(id) { return allBooks().find((b) => b.id === id); }
 
@@ -38,6 +40,8 @@ function renderProfile() {
   document.getElementById("meTitle").textContent = PROFILE.name;
   document.getElementById("gyeolName").textContent = PROFILE.name;
   document.getElementById("libName").textContent = PROFILE.name;
+  document.getElementById("sbName").textContent = PROFILE.name;
+  document.getElementById("sbAvatar").textContent = PROFILE.name.slice(0, 1);
 
   document.getElementById("profileCards").innerHTML = PROFILE.cards
     .map(
@@ -103,12 +107,29 @@ function coverHTML(b, cls) {
 
 /* ---------- 도서관 ---------- */
 let currentFilter = "all";
+let deleteMode = false;
+
+function deleteBook(id) {
+  const b = getBook(id);
+  if (!b) return;
+  if (!confirm(`'${b.title}'을(를) 서재에서 삭제할까요?`)) return;
+  const userList = lsArr(LS_BOOKS);
+  const idx = userList.findIndex((x) => x.id === id);
+  if (idx >= 0) {
+    userList.splice(idx, 1); lsSet(LS_BOOKS, userList);      // 직접 추가한 책 → 완전 삭제
+  } else {
+    const hidden = lsArr(LS_HIDDEN);                          // 기본 등록 책 → 숨김 처리
+    if (!hidden.includes(id)) { hidden.push(id); lsSet(LS_HIDDEN, hidden); }
+  }
+  renderLibrary(); renderGyeol();
+}
 
 function bookCardHTML(b) {
   const stars = b.aiRating ? "★".repeat(Math.round(b.aiRating)) : "";
   const badge = b.status === "wish" ? `<span class="badge wish">관심</span>` : `<span class="badge read">읽음</span>`;
   return `
     <button class="book-card" data-id="${b.id}">
+      <span class="card-del" data-del="${b.id}" title="삭제">✕</span>
       ${coverHTML(b, "card-cover")}
       <div class="book-meta">
         <div class="book-title">${b.title}</div>
@@ -187,8 +208,21 @@ function initLibraryUI() {
     renderLibrary();
   });
   document.getElementById("bookGrid").addEventListener("click", (e) => {
+    const del = e.target.closest(".card-del");
+    if (del) { e.stopPropagation(); deleteBook(del.dataset.del); return; }
+    if (deleteMode) return; // 삭제 모드에선 카드 본문 클릭은 무시
     const card = e.target.closest(".book-card");
     if (card && card.dataset.id) openBook(card.dataset.id);
+  });
+
+  // 삭제 모드 토글
+  const delBtn = document.getElementById("deleteModeBtn");
+  delBtn.addEventListener("click", () => {
+    deleteMode = !deleteMode;
+    delBtn.classList.toggle("on", deleteMode);
+    delBtn.textContent = deleteMode ? "✓ 완료" : "🗑 삭제";
+    document.getElementById("bookGrid").classList.toggle("del-on", deleteMode);
+    document.getElementById("delHint").hidden = !deleteMode;
   });
   document.getElementById("recoBooks").addEventListener("click", (e) => {
     const card = e.target.closest(".reco-book");

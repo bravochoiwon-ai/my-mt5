@@ -7,18 +7,26 @@
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">✺</span>
-      <span class="brand-name" id="brandName">나의 공간</span>
-    </div>
-    <nav class="tabs" id="tabs">
-      <button class="tab is-active" data-tab="me">나</button>
-      <button class="tab" data-tab="library">나만의 도서관</button>
-    </nav>
-  </header>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sb-brand">
+        <span class="brand-mark">✺</span>
+        <span class="brand-name" id="brandName">나의 공간</span>
+      </div>
+      <nav class="sb-nav" id="tabs">
+        <div class="sb-group">메뉴</div>
+        <button class="tab is-active" data-tab="me"><span class="sb-ico">🧭</span><span>나</span></button>
+        <button class="tab" data-tab="library"><span class="sb-ico">📚</span><span>나만의 도서관</span></button>
+      </nav>
+      <div class="sb-foot">
+        <div class="sb-user">
+          <span class="sb-avatar" id="sbAvatar">나</span>
+          <span class="sb-uname"><b id="sbName">나</b> · 학생</span>
+        </div>
+      </div>
+    </aside>
 
-  <main class="container">
+    <main class="container">
     <!-- ========================= 나 ========================= -->
     <section id="tab-me" class="tab-panel is-active">
       <!-- 프로필 -->
@@ -69,13 +77,17 @@
       </div>
 
       <div class="toolbar">
-        <div class="filters" id="libFilters">
-          <button class="chip is-active" data-filter="all">전체</button>
-          <button class="chip" data-filter="read">읽은 책</button>
-          <button class="chip" data-filter="wish">관심 책</button>
+        <div class="toolbar-left">
+          <button class="del-toggle" id="deleteModeBtn">🗑 삭제</button>
+          <div class="filters" id="libFilters">
+            <button class="chip is-active" data-filter="all">전체</button>
+            <button class="chip" data-filter="read">읽은 책</button>
+            <button class="chip" data-filter="wish">관심 책</button>
+          </div>
         </div>
         <button class="btn-primary" id="addBookBtn">+ 책 직접 입력</button>
       </div>
+      <p class="del-hint" id="delHint" hidden>삭제할 책의 ✕ 를 누르세요. 다 했으면 <b>완료</b>를 눌러요.</p>
 
       <div class="grid grid-books" id="bookGrid"></div>
 
@@ -102,7 +114,8 @@
         </div>
       </div>
     </section>
-  </main>
+    </main>
+  </div>
 
   <!-- 책 상세 모달 -->
   <div class="modal-backdrop" id="bookModal" hidden>
