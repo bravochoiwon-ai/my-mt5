@@ -140,7 +140,11 @@ body.modal-open { overflow: hidden; }
 /* ---------- Toolbar ---------- */
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.filters { display: flex; gap: 6px; }
+.toolbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.wt-filters { display: flex; flex-direction: column; gap: 9px; margin-bottom: 18px; }
+.filter-group { display: flex; align-items: flex-start; gap: 10px; }
+.fg-label { font-size: 12px; font-weight: 700; color: var(--muted); width: 48px; flex: none; padding-top: 7px; }
 .del-toggle { border: 1px solid var(--line); background: #fff; color: #dc2626; font-weight: 700; font-size: 13px; padding: 7px 13px; border-radius: 999px; cursor: pointer; }
 .del-toggle:hover { background: #fef2f2; border-color: #fecaca; }
 .del-toggle.on { background: #dc2626; color: #fff; border-color: #dc2626; }
@@ -199,6 +203,8 @@ body.modal-open { overflow: hidden; }
 .badge.wish { background: #fff1e6; color: #c2410c; }
 .badge.watching { background: #dcfce7; color: #15803d; }
 .badge.done { background: #ede9fe; color: #6d28d9; }
+.badge.serial.ing { background: #e0f2fe; color: #0369a1; }
+.badge.serial.fin { background: #f1f5f9; color: #64748b; }
 
 /* ---------- Reco ---------- */
 .reco { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }

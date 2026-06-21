@@ -78,15 +78,15 @@
       </div>
 
       <div class="toolbar">
-        <div class="toolbar-left">
-          <button class="del-toggle" id="deleteModeBtn">🗑 삭제</button>
-          <div class="filters" id="libFilters">
-            <button class="chip is-active" data-filter="all">전체</button>
-            <button class="chip" data-filter="read">읽은 책</button>
-            <button class="chip" data-filter="wish">관심 책</button>
-          </div>
+        <div class="filters" id="libFilters">
+          <button class="chip is-active" data-filter="all">전체</button>
+          <button class="chip" data-filter="read">읽은 책</button>
+          <button class="chip" data-filter="wish">관심 책</button>
         </div>
-        <button class="btn-primary" id="addBookBtn">+ 책 직접 입력</button>
+        <div class="toolbar-right">
+          <button class="del-toggle" id="deleteModeBtn">🗑 삭제</button>
+          <button class="btn-primary" id="addBookBtn">+ 책 직접 입력</button>
+        </div>
       </div>
       <p class="del-hint" id="delHint" hidden>삭제할 책의 ✕ 를 누르세요. 다 했으면 <b>완료</b>를 눌러요.</p>
 
@@ -124,16 +124,34 @@
       </div>
 
       <div class="toolbar">
-        <div class="toolbar-left">
+        <div class="toolbar-right">
           <button class="del-toggle" id="wtDeleteBtn">🗑 삭제</button>
-          <div class="filters" id="wtFilters">
-            <button class="chip is-active" data-wfilter="all">전체</button>
-            <button class="chip" data-wfilter="watching">보는 중</button>
-            <button class="chip" data-wfilter="done">완독</button>
-            <button class="chip" data-wfilter="wish">관심</button>
+          <button class="btn-primary" id="addWebtoonBtn">+ 웹툰 직접 입력</button>
+        </div>
+      </div>
+
+      <div class="wt-filters">
+        <div class="filter-group">
+          <span class="fg-label">내 분류</span>
+          <div class="filters" id="wtStatusFilters">
+            <button class="chip is-active" data-wstatus="all">전체</button>
+            <button class="chip" data-wstatus="watching">보는 중</button>
+            <button class="chip" data-wstatus="done">완독</button>
+            <button class="chip" data-wstatus="wish">관심</button>
           </div>
         </div>
-        <button class="btn-primary" id="addWebtoonBtn">+ 웹툰 직접 입력</button>
+        <div class="filter-group">
+          <span class="fg-label">연재</span>
+          <div class="filters" id="wtSerialFilters">
+            <button class="chip is-active" data-wserial="all">전체</button>
+            <button class="chip" data-wserial="ongoing">연재중</button>
+            <button class="chip" data-wserial="finished">완결</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <span class="fg-label">장르</span>
+          <div class="filters" id="wtGenreFilters"></div>
+        </div>
       </div>
       <p class="del-hint" id="wtDelHint" hidden>삭제할 웹툰의 ✕ 를 누르세요. 다 했으면 <b>완료</b>를 눌러요.</p>
 

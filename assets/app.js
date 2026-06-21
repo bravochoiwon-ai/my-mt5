@@ -441,7 +441,7 @@ function initAddBook() {
 /* ============================================================
    웹툰 (네이버 웹툰 기준) — 추가 / 삭제 / 필터
    ============================================================ */
-let wtFilter = "all";
+let wtStatus = "all", wtSerial = "all", wtGenre = "all";
 let wtDeleteMode = false;
 
 const WT_STATUS = {
@@ -450,9 +450,12 @@ const WT_STATUS = {
   wish: { label: "관심", cls: "wish" },
 };
 
+const isFinished = (w) => w.day === "완결";
+
 function webtoonCardHTML(w) {
   const st = WT_STATUS[w.status] || WT_STATUS.watching;
-  const day = w.day ? (w.day === "완결" ? "완결" : w.day + "요일") : "";
+  const fin = isFinished(w);
+  const dayTxt = fin ? "" : (w.day ? w.day + "요일" : "요일 미정");
   return `
     <button class="book-card" data-id="${w.id}">
       <span class="card-del" data-del="${w.id}" title="삭제">✕</span>
@@ -462,9 +465,9 @@ function webtoonCardHTML(w) {
         <div class="book-author">${w.author || "작가 미상"}</div>
         <div class="book-foot">
           <span class="badge ${st.cls}">${st.label}</span>
-          <span class="book-genre">${w.genre || ""}</span>
+          <span class="badge serial ${fin ? "fin" : "ing"}">${fin ? "완결" : "연재중"}</span>
         </div>
-        <div class="book-stars muted">네이버 웹툰${day ? " · " + day : ""}</div>
+        <div class="book-stars muted">네이버 웹툰 · ${w.genre || ""}${dayTxt ? " · " + dayTxt : ""}</div>
       </div>
     </button>`;
 }
@@ -474,11 +477,13 @@ function renderWebtoons() {
   document.getElementById("wtCount").textContent = list.length;
 
   let shown = list;
-  if (wtFilter !== "all") shown = list.filter((w) => w.status === wtFilter);
+  if (wtStatus !== "all") shown = shown.filter((w) => w.status === wtStatus);
+  if (wtSerial !== "all") shown = shown.filter((w) => isFinished(w) === (wtSerial === "finished"));
+  if (wtGenre !== "all") shown = shown.filter((w) => w.genre === wtGenre);
 
   document.getElementById("webtoonGrid").innerHTML =
     shown.map(webtoonCardHTML).join("") ||
-    `<p class="muted">${list.length ? "이 분류에 웹툰이 없어요." : "아직 추가한 웹툰이 없어요. 오른쪽 위 <b>+ 웹툰 직접 입력</b>으로 담아보세요."}</p>`;
+    `<p class="muted">${list.length ? "이 조건에 맞는 웹툰이 없어요." : "아직 추가한 웹툰이 없어요. 오른쪽 위 <b>+ 웹툰 직접 입력</b>으로 담아보세요."}</p>`;
 }
 
 function deleteWebtoon(id) {
@@ -576,19 +581,27 @@ function wireWebtoonEvents(id) {
 }
 
 function initWebtoonUI() {
-  // 장르 옵션 채우기 (네이버 웹툰 기준)
+  // 장르 옵션 채우기 (입력 폼 + 필터 칩)
   document.getElementById("wtGenreSelect").innerHTML =
     WEBTOON_GENRES.map((g) => `<option>${g}</option>`).join("");
+  document.getElementById("wtGenreFilters").innerHTML =
+    `<button class="chip is-active" data-wgenre="all">전체</button>` +
+    WEBTOON_GENRES.map((g) => `<button class="chip" data-wgenre="${g}">${g}</button>`).join("");
 
-  // 필터
-  document.getElementById("wtFilters").addEventListener("click", (e) => {
-    const chip = e.target.closest(".chip");
-    if (!chip) return;
-    document.querySelectorAll("#wtFilters .chip").forEach((c) => c.classList.remove("is-active"));
-    chip.classList.add("is-active");
-    wtFilter = chip.dataset.wfilter;
-    renderWebtoons();
-  });
+  // 필터 그룹 3개 (내 분류 / 연재 / 장르)
+  const bindFilterGroup = (groupId, key, setter) => {
+    document.getElementById(groupId).addEventListener("click", (e) => {
+      const chip = e.target.closest(".chip");
+      if (!chip) return;
+      document.querySelectorAll(`#${groupId} .chip`).forEach((c) => c.classList.remove("is-active"));
+      chip.classList.add("is-active");
+      setter(chip.dataset[key]);
+      renderWebtoons();
+    });
+  };
+  bindFilterGroup("wtStatusFilters", "wstatus", (v) => (wtStatus = v));
+  bindFilterGroup("wtSerialFilters", "wserial", (v) => (wtSerial = v));
+  bindFilterGroup("wtGenreFilters", "wgenre", (v) => (wtGenre = v));
 
   // 카드 클릭 — 삭제(✕) 또는 상세 열기
   document.getElementById("webtoonGrid").addEventListener("click", (e) => {
