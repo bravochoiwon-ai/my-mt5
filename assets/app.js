@@ -360,7 +360,27 @@ function wireDetailEvents(id) {
     })
   );
 
-  // 별점
+  wireRating(id);
+}
+
+/* 추천 별점 — 책/웹툰 공용 (HTML: ratingCardHTML) */
+function ratingCardHTML(id) {
+  const mine = lsGet(LS_RATING)[id];
+  return `
+    <div class="card rating-card">
+      <div class="rc-head">추천 별점 <span class="dc-sub">${mine ? `내 평점 ${mine.rating}점` : "아직 평가가 없어요. 첫 평가를 남겨보세요."}</span></div>
+      <div class="stars-input" id="starsInput" data-id="${id}">
+        ${[1, 2, 3, 4, 5].map((n) => `<span class="star ${mine && n <= mine.rating ? "on" : ""}" data-v="${n}">★</span>`).join("")}
+      </div>
+      <button class="comment-toggle" id="commentToggle">+ 짧은 코멘트 (선택)</button>
+      <div class="comment-box" id="commentBox" ${mine && mine.comment ? "" : "hidden"}>
+        <textarea id="commentText" placeholder="이 작품에 대한 한 줄...">${mine && mine.comment ? mine.comment : ""}</textarea>
+        <button class="btn-primary sm" id="saveComment">저장</button>
+      </div>
+    </div>`;
+}
+
+function wireRating(id) {
   const starsEl = document.getElementById("starsInput");
   const setStars = (v) => starsEl.querySelectorAll(".star").forEach((s) => s.classList.toggle("on", +s.dataset.v <= v));
   starsEl.querySelectorAll(".star").forEach((s) => {
@@ -377,8 +397,6 @@ function wireDetailEvents(id) {
     const saved = lsGet(LS_RATING)[id];
     setStars(saved ? saved.rating : 0);
   });
-
-  // 코멘트
   document.getElementById("commentToggle").addEventListener("click", () => {
     document.getElementById("commentBox").hidden = !document.getElementById("commentBox").hidden;
   });
@@ -472,6 +490,91 @@ function deleteWebtoon(id) {
   renderWebtoons();
 }
 
+function getWebtoon(id) { return lsArr(LS_WEBTOONS).find((w) => w.id === id); }
+
+/* 웹툰 상세 — 클릭하면 그 웹툰 내용으로 */
+function openWebtoon(id) {
+  const w = getWebtoon(id);
+  if (!w) return;
+  const day = w.day ? (w.day === "완결" ? "완결" : w.day + "요일 연재") : "";
+  const meta = ["네이버 웹툰", w.genre, day].filter(Boolean).join("  ·  ");
+
+  // 같은 작가(회사)의 다른 작품
+  const others = w.author ? lsArr(LS_WEBTOONS).filter((x) => x.author === w.author && x.id !== w.id) : [];
+  const othersHTML = others.length
+    ? others.map((o) => `
+        <button class="reco-book" data-wid="${o.id}">
+          ${coverHTML(o, "reco-cover")}
+          <div class="rb-meta">
+            <div class="rb-title">${o.title}</div>
+            <div class="rb-genre">${o.genre || ""} · ${(WT_STATUS[o.status] || WT_STATUS.watching).label}</div>
+          </div>
+        </button>`).join("")
+    : `<div class="review-empty">${w.author
+        ? `'${w.author}' 작가의 다른 작품이 아직 서재에 없어요.<br/>같은 작가의 웹툰을 더 추가하면 여기에 모여요.`
+        : "작가 정보가 없어요. 작가를 입력하면 같은 작가의 작품이 여기 모여요."}</div>`;
+
+  // 장르별 특성
+  const traits = WEBTOON_TRAITS[w.genre] || [];
+  const traitsHTML = traits.length
+    ? traits.map((t) => `<span class="trait-chip">${t}</span>`).join("")
+    : `<span class="muted">이 장르의 특성 정보가 없어요.</span>`;
+
+  document.getElementById("modalBody").innerHTML = `
+    <div class="card detail-head">
+      ${coverHTML(w, "detail-cover")}
+      <div class="dh-info">
+        <h3>${w.title}</h3>
+        <div class="dh-author">${w.author || "작가 미상"}</div>
+        <div class="dh-meta">${meta}</div>
+        <div class="dh-status">
+          <span class="dh-status-label">내 분류</span>
+          <button class="seg ${w.status === "watching" ? "on" : ""}" data-wstatus="watching">보는 중</button>
+          <button class="seg ${w.status === "done" ? "on" : ""}" data-wstatus="done">완독</button>
+          <button class="seg ${w.status === "wish" ? "on" : ""}" data-wstatus="wish">관심</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card detail-col">
+        <div class="dc-head">🎨 이 작가의 다른 작품 <span class="dc-sub">${w.author || ""}</span></div>
+        <div class="reco-books">${othersHTML}</div>
+      </div>
+      <div class="card detail-col">
+        <div class="dc-head">🏷 특성 <span class="dc-sub">${w.genre || ""} 장르</span></div>
+        <div class="trait-wrap">${traitsHTML}</div>
+        <div class="char-note">※ 네이버 웹툰 장르 분류에 따른 대표 특성이에요.</div>
+      </div>
+    </div>
+
+    ${ratingCardHTML(w.id)}
+  `;
+
+  document.getElementById("bookModal").hidden = false;
+  document.body.classList.add("modal-open");
+  wireWebtoonEvents(w.id);
+}
+
+function wireWebtoonEvents(id) {
+  // 상태(보는 중/완독/관심) 토글
+  document.querySelectorAll(".dh-status .seg").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const list = lsArr(LS_WEBTOONS);
+      const w = list.find((x) => x.id === id);
+      if (w) { w.status = btn.dataset.wstatus; lsSet(LS_WEBTOONS, list); }
+      document.querySelectorAll(".dh-status .seg").forEach((s) => s.classList.toggle("on", s.dataset.wstatus === btn.dataset.wstatus));
+      renderWebtoons();
+    })
+  );
+  // 다른 작품 클릭 → 그 웹툰 내용으로 이동
+  document.querySelectorAll(".reco-book[data-wid]").forEach((b) =>
+    b.addEventListener("click", () => openWebtoon(b.dataset.wid))
+  );
+  // 추천 별점(책과 공용)
+  wireRating(id);
+}
+
 function initWebtoonUI() {
   // 장르 옵션 채우기 (네이버 웹툰 기준)
   document.getElementById("wtGenreSelect").innerHTML =
@@ -487,10 +590,13 @@ function initWebtoonUI() {
     renderWebtoons();
   });
 
-  // 카드(삭제) 클릭
+  // 카드 클릭 — 삭제(✕) 또는 상세 열기
   document.getElementById("webtoonGrid").addEventListener("click", (e) => {
     const del = e.target.closest(".card-del");
-    if (del) { e.stopPropagation(); deleteWebtoon(del.dataset.del); }
+    if (del) { e.stopPropagation(); deleteWebtoon(del.dataset.del); return; }
+    if (wtDeleteMode) return;
+    const card = e.target.closest(".book-card");
+    if (card && card.dataset.id) openWebtoon(card.dataset.id);
   });
 
   // 삭제 모드 토글

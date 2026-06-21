@@ -272,6 +272,8 @@ body.modal-open { overflow: hidden; }
 .axis-desc ul { margin: 10px 0 0; padding-left: 18px; color: #475569; }
 .axis-desc li { margin: 4px 0; }
 .char-note { font-size: 12px; color: var(--muted); margin-top: 12px; }
+.trait-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.trait-chip { font-size: 13px; font-weight: 600; color: var(--accent); background: #eef2ff; border: 1px solid #dbe4ff; padding: 7px 13px; border-radius: 999px; }
 
 .rating-card { padding: 18px; margin-top: 14px; }
 .rc-head { font-weight: 700; display: flex; gap: 10px; align-items: baseline; }
