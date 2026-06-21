@@ -8,6 +8,8 @@ const LS_RATING = "myspace.myRatings.v1";      // 내 추천 별점·코멘트
 const LS_REVIEW = "myspace.myReviews.v1";      // 내 서평
 const LS_HIDDEN = "myspace.hiddenBooks.v1";    // 삭제(숨김)한 책 id
 const LS_WEBTOONS = "myspace.webtoons.v1";     // 직접 추가한 웹툰
+const LS_WT_OVERRIDE = "myspace.webtoonOverride.v1"; // 시드 웹툰의 상태·표지 덮어쓰기
+const LS_WT_HIDDEN = "myspace.webtoonHidden.v1";     // 삭제(숨김)한 웹툰 id
 
 const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
 const lsArr = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
@@ -473,7 +475,7 @@ function webtoonCardHTML(w) {
 }
 
 function renderWebtoons() {
-  const list = lsArr(LS_WEBTOONS);
+  const list = webtoonList();
   document.getElementById("wtCount").textContent = list.length;
 
   let shown = list;
@@ -491,7 +493,8 @@ function renderWebtoons() {
 /* 웹툰 취향 결 — 특성 매긴 웹툰들의 평균 (책의 '독서 결'에 대응) */
 function renderWebtoonGyeol() {
   const wrap = document.getElementById("wtGyeol");
-  const scored = lsArr(LS_WEBTOONS).filter((w) => Array.isArray(w.axes) && w.axes.length === WEBTOON_AXES.length);
+  const all = webtoonList();
+  const scored = all.filter((w) => Array.isArray(w.axes) && w.axes.length === WEBTOON_AXES.length);
   if (!scored.length) { wrap.hidden = true; return; }
   wrap.hidden = false;
 
@@ -503,7 +506,7 @@ function renderWebtoonGyeol() {
     labels: WEBTOON_AXES, values: avgs, max: 5, size: 440, accent: "#7c3aed",
   });
 
-  const total = lsArr(LS_WEBTOONS).length;
+  const total = all.length;
   const strong = avgs.filter((v) => v >= 3.5).length;
   document.getElementById("wtStats").innerHTML = `
     <div class="stat"><div class="stat-num">${total}</div><div class="stat-cap">담은 웹툰</div></div>
@@ -528,16 +531,50 @@ function renderWebtoonGyeol() {
   }).join("");
 }
 
+/* 시드(SAMPLE_WEBTOONS) + 직접 추가 웹툰 합치기 (+숨김/덮어쓰기 반영) */
+function webtoonList() {
+  const seed = (typeof SAMPLE_WEBTOONS !== "undefined" ? SAMPLE_WEBTOONS : []);
+  const ov = lsGet(LS_WT_OVERRIDE);
+  const hidden = lsArr(LS_WT_HIDDEN);
+  return [...seed, ...lsArr(LS_WEBTOONS)]
+    .filter((w) => !hidden.includes(w.id))
+    .map((w) => (ov[w.id] ? { ...w, ...ov[w.id] } : w));
+}
+function getWebtoon(id) { return webtoonList().find((w) => w.id === id); }
+
+/* 상태·표지 등 수정 — 직접 추가 웹툰은 그 자리에서, 시드 웹툰은 덮어쓰기로 */
+function updateWebtoon(id, patch) {
+  const userList = lsArr(LS_WEBTOONS);
+  const idx = userList.findIndex((w) => w.id === id);
+  if (idx >= 0) {
+    userList[idx] = { ...userList[idx], ...patch }; lsSet(LS_WEBTOONS, userList);
+  } else {
+    const ov = lsGet(LS_WT_OVERRIDE); ov[id] = { ...(ov[id] || {}), ...patch }; lsSet(LS_WT_OVERRIDE, ov);
+  }
+}
+
 function deleteWebtoon(id) {
-  const list = lsArr(LS_WEBTOONS);
-  const w = list.find((x) => x.id === id);
+  const w = getWebtoon(id);
   if (!w) return;
   if (!confirm(`'${w.title}'을(를) 웹툰 서재에서 삭제할까요?`)) return;
-  lsSet(LS_WEBTOONS, list.filter((x) => x.id !== id));
+  const userList = lsArr(LS_WEBTOONS);
+  if (userList.some((x) => x.id === id)) {
+    lsSet(LS_WEBTOONS, userList.filter((x) => x.id !== id));      // 직접 추가 → 완전 삭제
+  } else {
+    const h = lsArr(LS_WT_HIDDEN);                                 // 시드 → 숨김
+    if (!h.includes(id)) { h.push(id); lsSet(LS_WT_HIDDEN, h); }
+  }
   renderWebtoons();
 }
 
-function getWebtoon(id) { return lsArr(LS_WEBTOONS).find((w) => w.id === id); }
+/* 표지 아바타 (등장인물 미니/사진 공용) */
+function charAvatarHTML(c, cls) {
+  if (c.img) {
+    return `<div class="cover ${cls}"><img src="${c.img}" alt="${c.name}"
+      onerror="this.parentElement.classList.add('cover-fallback');this.remove();this.parentElement.dataset.letter='${(c.name||'?').slice(0,1)}';"/></div>`;
+  }
+  return `<div class="cover cover-fallback ${cls}" style="--g:hsl(265 45% 60%)" data-letter="${(c.name || "?").slice(0, 1)}"></div>`;
+}
 
 /* 웹툰 상세 — 클릭하면 그 웹툰 내용으로 */
 function openWebtoon(id) {
@@ -547,7 +584,7 @@ function openWebtoon(id) {
   const meta = ["네이버 웹툰", w.genre, day].filter(Boolean).join("  ·  ");
 
   // 같은 작가(회사)의 다른 작품
-  const others = w.author ? lsArr(LS_WEBTOONS).filter((x) => x.author === w.author && x.id !== w.id) : [];
+  const others = w.author ? webtoonList().filter((x) => x.author === w.author && x.id !== w.id) : [];
   const othersHTML = others.length
     ? others.map((o) => `
         <button class="reco-book" data-wid="${o.id}">
@@ -566,9 +603,19 @@ function openWebtoon(id) {
     ? `<div class="modal-radar" id="wtRadar"></div>`
     : `<div class="review-empty">특성이 아직 없어요.<br/>웹툰을 추가할 때 6축을 매기면 여기 레이더로 떠요.</div>`;
 
+  // 등장인물
+  const chars = Array.isArray(w.characters) ? w.characters : [];
+  const charsHTML = chars.length
+    ? chars.map((c, i) => `
+        <button class="char-mini" data-char="${i}">
+          ${charAvatarHTML(c, "char-mini-img")}
+          <span class="char-mini-name">${c.name}</span>
+        </button>`).join("")
+    : `<span class="muted">등장인물 정보가 아직 없어요.</span>`;
+
   document.getElementById("modalBody").innerHTML = `
     <div class="card detail-head">
-      ${coverHTML(w, "detail-cover")}
+      <div id="wtCoverHolder" class="cover-clickable" title="표지 바꾸기">${coverHTML(w, "detail-cover")}</div>
       <div class="dh-info">
         <h3>${w.title}</h3>
         <div class="dh-author">${w.author || "작가 미상"}</div>
@@ -578,6 +625,10 @@ function openWebtoon(id) {
           <button class="seg ${w.status === "watching" ? "on" : ""}" data-wstatus="watching">보는 중</button>
           <button class="seg ${w.status === "done" ? "on" : ""}" data-wstatus="done">완독</button>
           <button class="seg ${w.status === "wish" ? "on" : ""}" data-wstatus="wish">관심</button>
+        </div>
+        <div class="wt-cover-edit" id="wtCoverEdit" hidden>
+          <input id="wtCoverInput" placeholder="표지 이미지 주소(URL) 붙여넣기" value="${w.cover || ""}" />
+          <span class="wt-cover-hint">붙여넣으면 바로 적용돼요 · 표지를 누르면 열고닫혀요</span>
         </div>
       </div>
     </div>
@@ -594,6 +645,16 @@ function openWebtoon(id) {
       </div>
     </div>
 
+    <div class="card detail-col detail-wide">
+      <div class="dc-head">📜 설정 · 세계관</div>
+      <div class="wt-setting">${w.setting ? w.setting.replace(/\n/g, "<br/>") : `<span class="muted">설정 정보가 아직 없어요.</span>`}</div>
+    </div>
+
+    <div class="card detail-col detail-wide">
+      <div class="dc-head">👥 등장인물 <span class="dc-sub">이름을 누르면 상세</span></div>
+      <div class="char-grid">${charsHTML}</div>
+    </div>
+
     ${ratingCardHTML(w.id)}
   `;
 
@@ -607,21 +668,76 @@ function openWebtoon(id) {
   wireWebtoonEvents(w.id);
 }
 
+/* 등장인물 상세 — 사진·소개·능력·과거 등 */
+function openWebtoonCharacter(wid, idx) {
+  const w = getWebtoon(wid);
+  if (!w || !Array.isArray(w.characters)) return;
+  const c = w.characters[idx];
+  if (!c) return;
+
+  const rows = [
+    ["능력 · 이능", c.ability],
+    ["성격", c.personality],
+    ["소속", c.affiliation],
+    ["과거 · 배경", c.past],
+    ["명대사", c.quote ? `“${c.quote}”` : ""],
+  ].filter(([, v]) => v);
+
+  document.getElementById("modalBody").innerHTML = `
+    <button class="char-back" id="charBack">←  ${w.title}(으)로</button>
+    <div class="card detail-head">
+      ${charAvatarHTML(c, "detail-cover")}
+      <div class="dh-info">
+        <h3>${c.name}${c.alias ? ` <span class="char-alias">${c.alias}</span>` : ""}</h3>
+        <p class="dh-desc">${c.intro ? c.intro.replace(/\n/g, "<br/>") : "소개가 아직 없어요."}</p>
+      </div>
+    </div>
+    ${rows.length ? `
+    <div class="card detail-col detail-wide">
+      <table class="char-table">
+        ${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v.replace(/\n/g, "<br/>")}</td></tr>`).join("")}
+      </table>
+    </div>` : ""}
+  `;
+  document.getElementById("charBack").addEventListener("click", () => openWebtoon(wid));
+}
+
 function wireWebtoonEvents(id) {
   // 상태(보는 중/완독/관심) 토글
   document.querySelectorAll(".dh-status .seg").forEach((btn) =>
     btn.addEventListener("click", () => {
-      const list = lsArr(LS_WEBTOONS);
-      const w = list.find((x) => x.id === id);
-      if (w) { w.status = btn.dataset.wstatus; lsSet(LS_WEBTOONS, list); }
+      updateWebtoon(id, { status: btn.dataset.wstatus });
       document.querySelectorAll(".dh-status .seg").forEach((s) => s.classList.toggle("on", s.dataset.wstatus === btn.dataset.wstatus));
       renderWebtoons();
     })
   );
+
+  // 표지 클릭 → 붙여넣기 칸 열고닫기
+  const holder = document.getElementById("wtCoverHolder");
+  const coverEdit = document.getElementById("wtCoverEdit");
+  if (holder && coverEdit) {
+    holder.addEventListener("click", () => { coverEdit.hidden = !coverEdit.hidden; if (!coverEdit.hidden) document.getElementById("wtCoverInput").focus(); });
+    const input = document.getElementById("wtCoverInput");
+    const applyCover = () => {
+      const url = input.value.trim();
+      updateWebtoon(id, { cover: url || null });
+      holder.innerHTML = coverHTML(getWebtoon(id), "detail-cover");
+      renderWebtoons();
+    };
+    input.addEventListener("input", applyCover);
+    input.addEventListener("paste", () => setTimeout(applyCover, 0));
+  }
+
+  // 등장인물 클릭 → 인물 상세
+  document.querySelectorAll(".char-mini[data-char]").forEach((b) =>
+    b.addEventListener("click", () => openWebtoonCharacter(id, +b.dataset.char))
+  );
+
   // 다른 작품 클릭 → 그 웹툰 내용으로 이동
   document.querySelectorAll(".reco-book[data-wid]").forEach((b) =>
     b.addEventListener("click", () => openWebtoon(b.dataset.wid))
   );
+
   // 추천 별점(책과 공용)
   wireRating(id);
 }
